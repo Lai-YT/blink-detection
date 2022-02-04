@@ -1,7 +1,7 @@
 import math
 import statistics
 from enum import Enum, auto
-from typing import List, Tuple
+from typing import Tuple
 
 import cv2
 from imutils import face_utils
