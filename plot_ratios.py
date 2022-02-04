@@ -1,3 +1,5 @@
+import sys
+
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -10,8 +12,9 @@ def read_ratio_and_blinks(filename):
         for line in f:
             if line.startswith("*"):
                 line = line.lstrip("*")
-                # rewrite, the last one is where the blink ends
-                blinks[-1] = ratios[-1]
+                # rewrite, consider the one berfore the last one
+                # the middle of blink
+                blinks[-2] = ratios[-2]
             blinks.append("-")
             ratios.append(float(line))
     return {"ratios": ratios, "blinks": blinks}
@@ -41,12 +44,19 @@ def plot_ratio_and_blinks(ratios, blinks):
 
     ax.legend(["ratio", "blink"])
 
-    # # average line
-    # ax.axhline(y=np.mean(ratios), color="black", ls="--", linewidth=1)
+    # average line
+    ax.axhline(y=np.mean(blk), color="black", ls="--", linewidth=1)
+
+    mean_of_non_blinks = (np.sum(ratios) - np.sum(blk)) / (len(ratios) - len(blk))
+    ax.axhline(y=mean_of_non_blinks, color="black", ls="--", linewidth=1)
 
     plt.show()
 
 
 if __name__ == "__main__":
-    ratio_and_blinks = read_ratio_and_blinks("./ratio.txt")
+    if len(sys.argv) == 1:
+        file = "./ratio.txt"
+    else:
+        file = "./samples/" + sys.argv[1]
+    ratio_and_blinks = read_ratio_and_blinks(file)
     plot_ratio_and_blinks(**ratio_and_blinks)
