@@ -57,13 +57,15 @@ with open("./ratio.txt", "w+") as f:
             shape = predictor(gray, face)
             landmarks = face_utils.shape_to_np(shape)
 
+            if blink_detector.detect_blink(landmarks):
+                blink_count += 1
+                # the one right after an end of blink is marked
+                f.write("* ")
+
             ratio = BlinkDetector.get_average_eye_aspect_ratio(landmarks)
             f.write(f"{ratio:.3f}\n")
 
-            if blink_detector.detect_blink(landmarks):
-                blink_count += 1
             frame = draw_landmarks_used_by_blink_detector(frame, landmarks)
-
             # draw the total number of blinks on the frame along with
             # the computed eye aspect ratio for the frame
             cv2.putText(frame, f"Blinks: {blink_count}", (10, 30),
