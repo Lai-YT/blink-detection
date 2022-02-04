@@ -21,6 +21,9 @@ def read_ratio_and_blinks(filename):
 
 
 def plot_ratio_and_blinks(ratios, blinks):
+    # standard deviation
+    print(np.std(ratios))
+
     fig, ax = plt.subplots()
     ax.set_title("Ratio and Blinks")
 
