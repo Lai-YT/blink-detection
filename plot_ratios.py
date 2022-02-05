@@ -1,3 +1,4 @@
+import os
 import sys
 
 import matplotlib.pyplot as plt
@@ -20,12 +21,12 @@ def read_ratio_and_blinks(filename):
     return {"ratios": ratios, "blinks": blinks}
 
 
-def plot_ratio_and_blinks(ratios, blinks):
+def plot_ratio_and_blinks(ratios, blinks, title=""):
     # standard deviation
     print(np.std(ratios))
 
     fig, ax = plt.subplots()
-    ax.set_title("Ratio and Blinks")
+    ax.set_title(f"Ratio and Blinks ({title})")
 
     ratio_range = (0.1, 0.4)
 
@@ -62,4 +63,4 @@ if __name__ == "__main__":
     else:
         file = "./samples/" + sys.argv[1]
     ratio_and_blinks = read_ratio_and_blinks(file)
-    plot_ratio_and_blinks(**ratio_and_blinks)
+    plot_ratio_and_blinks(**ratio_and_blinks, title=os.path.basename(file))
