@@ -48,9 +48,11 @@ def plot_ratio_and_blinks(ratios, blinks, title=""):
 
     ax.legend(["ratio", "blink"])
 
-    # average line
+    # ratio avg line
     ax.axhline(y=np.mean(blk), color="black", ls="--", linewidth=1)
-
+    # threshold line
+    ax.axhline(y=0.24, color="black", ls="--", linewidth=1)
+    # blink avg line
     mean_of_non_blinks = (np.sum(ratios) - np.sum(blk)) / (len(ratios) - len(blk))
     ax.axhline(y=mean_of_non_blinks, color="black", ls="--", linewidth=1)
 
