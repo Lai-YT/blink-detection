@@ -2,6 +2,7 @@ import cv2
 import dlib
 import imutils
 import time
+from functools import partial
 from operator import methodcaller
 from typing import Optional
 
@@ -17,18 +18,21 @@ from util.faceplots import (
     mark_face,
 )
 
-# define two constants, one for the eye aspect ratio to indicate
-# blink and then a second constant for the number of consecutive
-# frames the eye must be below the threshold
-EYE_AR_THRESH = 0.24
-EYE_AR_CONSEC_FRAMES = 3  # the face area mode consumes more computaional time,
-                          # 2 would be more suitable
 
-# initialize dlib's face detector (HOG-based) and then create
-# the facial landmark predictor
-print("[INFO] loading facial landmark predictor...")
-detector = dlib.get_frontal_face_detector()
-predictor = dlib.shape_predictor("./shape_predictor_68_face_landmarks.dat")
+def clamp(value: float, v_min: float, v_max: float) -> float:
+    """Clamps the value into the range [v_min, v_max].
+
+    e.g., _clamp(50, 20, 40) returns 40.
+    v_min should be less or equal to v_max. (v_min <= v_max)
+    """
+    if not v_min < v_max:
+        raise ValueError("v_min is the lower bound, which should be smaller than v_max")
+
+    if value > v_max:
+        value = v_max
+    elif value < v_min:
+        value = v_min
+    return value
 
 
 def get_biggest_face(faces: dlib.rectangles) -> Optional[dlib.rectangle]:
@@ -49,10 +53,28 @@ def get_face_area_frame(frame):
     if face is not None:
         # extract the face area from the frame
         fx, fy, fw, fh = face_utils.rect_to_bb(face)
+        ih, iw, _ = frame.shape
+
+        clamp_height = partial(clamp, v_min=0, v_max=ih)
+        clamp_width = partial(clamp, v_min=0, v_max=iw)
         # NOTE: this makes a view, not copy
-        frame = frame[int(fy-0.2*fh):int(fy+1.2*fh), int(fx-0.2*fw):int(fx+1.2*fw)]
+        frame = frame[int(clamp_height(fy-0.2*fh)):int(clamp_height(fy+1.2*fh)),
+                      int(clamp_width(fx-0.2*fw)):int(clamp_width(fx+1.2*fw))]
     return frame
 
+
+# define two constants, one for the eye aspect ratio to indicate
+# blink and then a second constant for the number of consecutive
+# frames the eye must be below the threshold
+EYE_AR_THRESH = 0.24
+EYE_AR_CONSEC_FRAMES = 3  # the face area mode consumes more computaional time,
+                          # 2 would be more suitable
+
+# initialize dlib's face detector (HOG-based) and then create
+# the facial landmark predictor
+print("[INFO] loading facial landmark predictor...")
+detector = dlib.get_frontal_face_detector()
+predictor = dlib.shape_predictor("./shape_predictor_68_face_landmarks.dat")
 
 print("[INFO] preparing blink detector...")
 blink_detector = AntiNoiseBlinkDetector(EYE_AR_THRESH, EYE_AR_CONSEC_FRAMES)
