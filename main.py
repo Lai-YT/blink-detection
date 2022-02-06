@@ -2,21 +2,73 @@ import cv2
 import dlib
 import imutils
 import time
+from functools import partial
+from operator import methodcaller
+from typing import Optional
+
 from imutils import face_utils
 
 from blink_detector import (
     AntiNoiseBlinkDetector,
     BlinkDetector,
-    draw_landmarks_used_by_blink_detector,
 )
 from util.color import RED
+from util.faceplots import (
+    draw_landmarks_used_by_blink_detector,
+    mark_face,
+)
+
+
+def clamp(value: float, v_min: float, v_max: float) -> float:
+    """Clamps the value into the range [v_min, v_max].
+
+    e.g., _clamp(50, 20, 40) returns 40.
+    v_min should be less or equal to v_max. (v_min <= v_max)
+    """
+    if not v_min < v_max:
+        raise ValueError("v_min is the lower bound, which should be smaller than v_max")
+
+    if value > v_max:
+        value = v_max
+    elif value < v_min:
+        value = v_min
+    return value
+
+
+def get_biggest_face(faces: dlib.rectangles) -> Optional[dlib.rectangle]:
+    """Returns the face with the biggest area. None if the input faces is empty."""
+    # faces are compared through the area method
+    return max(faces, default=None, key=methodcaller("area"))
+
+
+def get_face_area_frame(frame):
+    """Returns the main face area if the frame contains any face.
+
+    Note that the area is about 2 times enlarged (1.4 x width and 1.4 x height)
+    to make sure the face isn't cut.
+    """
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    faces = detector(gray)
+    face = get_biggest_face(faces)
+    if face is not None:
+        # extract the face area from the frame
+        fx, fy, fw, fh = face_utils.rect_to_bb(face)
+        ih, iw, _ = frame.shape
+
+        clamp_height = partial(clamp, v_min=0, v_max=ih)
+        clamp_width = partial(clamp, v_min=0, v_max=iw)
+        # NOTE: this makes a view, not copy
+        frame = frame[int(clamp_height(fy-0.2*fh)):int(clamp_height(fy+1.2*fh)),
+                      int(clamp_width(fx-0.2*fw)):int(clamp_width(fx+1.2*fw))]
+    return frame
 
 
 # define two constants, one for the eye aspect ratio to indicate
 # blink and then a second constant for the number of consecutive
 # frames the eye must be below the threshold
 EYE_AR_THRESH = 0.24
-EYE_AR_CONSEC_FRAMES = 3
+EYE_AR_CONSEC_FRAMES = 3  # the face area mode consumes more computaional time,
+                          # 2 would be more suitable
 
 # initialize dlib's face detector (HOG-based) and then create
 # the facial landmark predictor
@@ -43,15 +95,20 @@ with open("./ratio.txt", "w+") as f:
         # grab the frame from the camera, resize
         # it, and convert it to grayscale channels
         _, frame = cam.read()
+
+        # Uncomment the following line to process blink detection on the
+        # extracted face area.
+        # frame = get_face_area_frame(frame)
+
         frame = imutils.resize(frame, width=600)
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
         # detect faces in the grayscale frame
         faces = detector(gray)
+        face = get_biggest_face(faces)
 
-        # loop over the face detections
-        for face in faces:
-            # determine the facial landmarks for the face region, then
+        if face is not None:
+            # determine the facial landmarks for the face area, then
             # convert the facial landmark (x, y)-coordinates to a NumPy
             # array
             shape = predictor(gray, face)

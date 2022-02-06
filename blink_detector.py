@@ -3,12 +3,8 @@ import statistics
 from enum import Enum, auto
 from typing import Tuple
 
-import cv2
 from imutils import face_utils
 from nptyping import Int, NDArray
-
-from util.color import BGR, GREEN
-from util.image_type import ColorImage
 
 
 class EyeSide(Enum):
@@ -92,30 +88,6 @@ class BlinkDetector:
         else:
             raise TypeError(f'type of argument "side" must be "EyeSide", not "{type(side).__name__}"')
         return eye
-
-
-def draw_landmarks_used_by_blink_detector(
-        canvas: ColorImage,
-        landmarks: NDArray[(68, 2), Int[32]],
-        color: BGR = GREEN) -> ColorImage:
-    """Returns the canvas with the eyes' contours.
-
-    Arguments:
-        canvas: The image to draw on, it'll be copied.
-        landmarks: (x, y) coordinates of the 68 face landmarks.
-        color: Color of the lines, green (0, 255, 0) in default.
-    """
-    canvas_: ColorImage = canvas.copy()
-
-    # compute the convex hull for the left and right eye, then
-    # visualize each of the eyes
-    for start, end in (BlinkDetector.LEFT_EYE_START_END_IDXS, BlinkDetector.RIGHT_EYE_START_END_IDXS):
-        hull = cv2.convexHull(landmarks[start:end])
-        cv2.drawContours(canvas_, [hull], -1, color, 1)
-
-    # make lines transparent
-    canvas_ = cv2.addWeighted(canvas_, 0.4, canvas, 0.6, 0)
-    return canvas_
 
 
 class AntiNoiseBlinkDetector:
