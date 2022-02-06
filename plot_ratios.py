@@ -1,5 +1,5 @@
-import os
 import sys
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -21,12 +21,12 @@ def read_ratio_and_blinks(filename):
     return {"ratios": ratios, "blinks": blinks}
 
 
-def plot_ratio_and_blinks(ratios, blinks, title=""):
+def plot_ratio_and_blinks(ratios, blinks, title="", show=True):
     # standard deviation
-    print(np.std(ratios))
+    std = np.std(ratios)
 
     fig, ax = plt.subplots()
-    ax.set_title(f"Ratio and Blinks ({title})")
+    ax.set_title(f"{title}; {std:.4f}")
 
     ratio_range = (0.1, 0.4)
 
@@ -56,13 +56,21 @@ def plot_ratio_and_blinks(ratios, blinks, title=""):
     mean_of_non_blinks = (np.sum(ratios) - np.sum(blk)) / (len(ratios) - len(blk))
     ax.axhline(y=mean_of_non_blinks, color="black", ls="--", linewidth=1)
 
-    plt.show()
+    if show:
+        plt.show()
+    else:
+        dir_path = Path.cwd() / "plots"
+        dir_path.mkdir(exist_ok=True)
+        plt.savefig(dir_path / f"{title}.png", dpi=150)
 
 
 if __name__ == "__main__":
-    if len(sys.argv) == 1:
-        file = "./ratio.txt"
+    if len(sys.argv) != 1 and sys.argv[1] == "show":
+        path = (Path.cwd() / "ratio.txt").resolve()
+        ratio_and_blinks = read_ratio_and_blinks(str(path))
+        plot_ratio_and_blinks(**ratio_and_blinks, title=path.stem)
     else:
-        file = "./samples/" + sys.argv[1]
-    ratio_and_blinks = read_ratio_and_blinks(file)
-    plot_ratio_and_blinks(**ratio_and_blinks, title=os.path.basename(file))
+        dir_path = Path.cwd() / 'samples'
+        for path in dir_path.iterdir():
+            ratio_and_blinks = read_ratio_and_blinks(str(path))
+            plot_ratio_and_blinks(**ratio_and_blinks, title=path.stem, show=False)
