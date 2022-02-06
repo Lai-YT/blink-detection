@@ -123,7 +123,6 @@ with open("./ratio.txt", "w+") as f:
             f.write(f"{ratio:.3f}\n")
 
             frame = draw_landmarks_used_by_blink_detector(frame, landmarks)
-            # mark_face(frame, face_utils.rect_to_bb(face), landmarks)
             # draw the total number of blinks on the frame along with
             # the computed eye aspect ratio for the frame
             cv2.putText(frame, f"Blinks: {blink_count}", (10, 30),
