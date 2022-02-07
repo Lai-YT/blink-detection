@@ -8,6 +8,7 @@ import numpy as np
 def read_ratio_and_blinks(filename):
     ratios = []
     blinks = []
+    thress = []
 
     with open(filename, mode="r") as f:
         for line in f:
@@ -17,11 +18,13 @@ def read_ratio_and_blinks(filename):
                 # the middle of blink
                 blinks[-2] = ratios[-2]
             blinks.append("-")
-            ratios.append(float(line))
-    return {"ratios": ratios, "blinks": blinks}
+            ratio, thres = map(float, line.split())
+            ratios.append(ratio)
+            thress.append(thres)
+    return {"ratios": ratios, "blinks": blinks, "thress": thress}
 
 
-def plot_ratio_and_blinks(ratios, blinks, title="", show=True):
+def plot_ratio_and_blinks(ratios, blinks, thress, title="", show=True):
     # standard deviation
     std = np.std(ratios)
 
@@ -43,6 +46,9 @@ def plot_ratio_and_blinks(ratios, blinks, title="", show=True):
 
     ax.scatter(pos, blk, color="r")
 
+    # plot thress
+    ax.plot(np.arange(1, len(thress)+1), thress, color="black", ls="--", linewidth=1)
+
     ax.set(xlim=(1, len(ratios)+1),
            ylim=ratio_range, yticks=np.arange(*ratio_range, 0.02))
 
@@ -50,8 +56,6 @@ def plot_ratio_and_blinks(ratios, blinks, title="", show=True):
 
     # ratio avg line
     ax.axhline(y=np.mean(blk), color="black", ls="--", linewidth=1)
-    # threshold line
-    ax.axhline(y=0.24, color="black", ls="--", linewidth=1)
     # blink avg line
     mean_of_non_blinks = (np.sum(ratios) - np.sum(blk)) / (len(ratios) - len(blk))
     ax.axhline(y=mean_of_non_blinks, color="black", ls="--", linewidth=1)
@@ -70,7 +74,7 @@ if __name__ == "__main__":
         ratio_and_blinks = read_ratio_and_blinks(str(path))
         plot_ratio_and_blinks(**ratio_and_blinks, title=path.stem)
     else:
-        dir_path = Path.cwd() / 'samples'
+        dir_path = Path.cwd() / "samples"
         for path in dir_path.iterdir():
             ratio_and_blinks = read_ratio_and_blinks(str(path))
             plot_ratio_and_blinks(**ratio_and_blinks, title=path.stem, show=False)

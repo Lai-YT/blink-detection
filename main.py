@@ -11,6 +11,7 @@ from imutils import face_utils
 from blink_detector import (
     AntiNoiseBlinkDetector,
     BlinkDetector,
+    DynamicThresholdMaker,
 )
 from util.color import RED
 from util.faceplots import (
@@ -79,6 +80,9 @@ predictor = dlib.shape_predictor("./shape_predictor_68_face_landmarks.dat")
 print("[INFO] preparing blink detector...")
 blink_detector = AntiNoiseBlinkDetector(EYE_AR_THRESH, EYE_AR_CONSEC_FRAMES)
 
+print("[INFO] initializng threshold maker...")
+thres_maker = DynamicThresholdMaker(EYE_AR_THRESH, 500)
+
 # start the video stream
 print("[INFO] starting video stream...")
 cam = cv2.VideoCapture(0)
@@ -113,14 +117,17 @@ with open("./ratio.txt", "w+") as f:
             # array
             shape = predictor(gray, face)
             landmarks = face_utils.shape_to_np(shape)
+            ratio = BlinkDetector.get_average_eye_aspect_ratio(landmarks)
 
             if blink_detector.detect_blink(landmarks):
                 blink_count += 1
                 # the one right after an end of blink is marked
                 f.write("* ")
+            else:
+                thres_maker.read_ratio(ratio)
+                blink_detector.ratio_threshold = thres_maker.threshold
 
-            ratio = BlinkDetector.get_average_eye_aspect_ratio(landmarks)
-            f.write(f"{ratio:.3f}\n")
+            f.write(f"{ratio:.3f} {blink_detector.ratio_threshold:.3f}\n")
 
             frame = draw_landmarks_used_by_blink_detector(frame, landmarks)
             # draw the total number of blinks on the frame along with
