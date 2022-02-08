@@ -2,6 +2,7 @@ import math
 import sys
 from pathlib import Path
 
+import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -29,7 +30,7 @@ def calculate_rolling_mean(seq, win_size):
     # means are constant if the sequence is shorter than the size of window
     if len(seq) <= win_size:
         return np.full(len(seq), np.mean(seq))
-        
+
     sum = math.fsum(seq[:win_size])
     means = np.full(len(seq), sum / win_size)
     for i in range(win_size, len(seq)):
@@ -62,7 +63,7 @@ def plot_ratio_and_blinks(ratios, blinks, thress, title="", show=True):
     ax.scatter(pos, blk, color="r")
 
     # plot thress
-    ax.plot(np.arange(1, len(thress)+1), thress, color="black", ls="--", linewidth=1)
+    ax.plot(np.arange(1, len(thress)+1), thress, color=mcolors.CSS4_COLORS["aqua"], ls="--", linewidth=1)
 
     ax.set(xlim=(1, len(ratios)+1),
            ylim=ratio_range, yticks=np.arange(*ratio_range, 0.02))
@@ -71,7 +72,7 @@ def plot_ratio_and_blinks(ratios, blinks, thress, title="", show=True):
 
     # ratio avg line
     ax.plot(np.arange(1, len(thress)+1), calculate_rolling_mean(ratios, 1500),
-            color="black", ls="--", linewidth=1)
+            color=mcolors.CSS4_COLORS["lime"], ls="--", linewidth=1)
     # # blink avg line
     # mean_of_non_blinks = (np.sum(ratios) - np.sum(blk)) / (len(ratios) - len(blk))
     # ax.axhline(y=mean_of_non_blinks, color="black", ls="--", linewidth=1)

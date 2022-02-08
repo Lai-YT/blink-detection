@@ -90,6 +90,8 @@ time.sleep(1.0)
 
 # initialize the total number of blinks
 blink_count = 0
+consec_count = 0
+ratio_buffer = []
 
 # EAR logging file
 with open("./ratio.txt", "w+") as f:
@@ -119,13 +121,24 @@ with open("./ratio.txt", "w+") as f:
             landmarks = face_utils.shape_to_np(shape)
             ratio = BlinkDetector.get_average_eye_aspect_ratio(landmarks)
 
+            if ratio < blink_detector.ratio_threshold:
+                ratio_buffer.append(ratio)
+                consec_count += 1
+            # settle when the consec ends
+            else:
+                # not a real blink, give the ratios to maker
+                if consec_count < EYE_AR_CONSEC_FRAMES:
+                    for r in ratio_buffer:
+                        thres_maker.read_ratio(r)
+                ratio_buffer.clear()
+                consec_count = 0
+                thres_maker.read_ratio(ratio)
+                blink_detector.ratio_threshold = thres_maker.threshold
+
             if blink_detector.detect_blink(landmarks):
                 blink_count += 1
                 # the one right after an end of blink is marked
                 f.write("* ")
-            else:
-                thres_maker.read_ratio(ratio)
-                blink_detector.ratio_threshold = thres_maker.threshold
 
             f.write(f"{ratio:.3f} {blink_detector.ratio_threshold:.3f}\n")
 
