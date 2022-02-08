@@ -81,7 +81,7 @@ print("[INFO] preparing blink detector...")
 blink_detector = AntiNoiseBlinkDetector(EYE_AR_THRESH, EYE_AR_CONSEC_FRAMES)
 
 print("[INFO] initializng threshold maker...")
-thres_maker = DynamicThresholdMaker(EYE_AR_THRESH, 500)
+thres_maker = DynamicThresholdMaker(EYE_AR_THRESH, 1500)
 
 # start the video stream
 print("[INFO] starting video stream...")
