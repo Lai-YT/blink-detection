@@ -126,6 +126,11 @@ class BlinkDetector:
     RIGHT_EYE_START_END_IDXS: Tuple[int, int] = face_utils.FACIAL_LANDMARKS_IDXS["right_eye"]
 
     def __init__(self, ratio_threshold: float = 0.24) -> None:
+        """
+        Arguments:
+            ratio_threshold:
+                Having ratio lower than the threshold is considered to be a blink.
+        """
         self._ratio_threshold = ratio_threshold
 
     @property
@@ -138,6 +143,7 @@ class BlinkDetector:
 
     @classmethod
     def get_average_eye_aspect_ratio(cls, landmarks: NDArray[(68, 2), Int[32]]) -> float:
+        """Returns the averaged EAR of the two eyes."""
         # use the left and right eye coordinates to compute
         # the eye aspect ratio for both eyes
         left_ratio = BlinkDetector._get_eye_aspect_ratio(cls._extract_eye(landmarks, EyeSide.LEFT))
@@ -216,7 +222,12 @@ class AntiNoiseBlinkDetector:
         self._base_detector.ratio_threshold = threshold
 
     def detect_blink(self, landmarks: NDArray[(68, 2), Int[32]]) -> bool:
-        """Returns whether the eyes in the face landmarks are blinking or not."""
+        """Returns whether the eyes in the face landmarks are blinking or not.
+
+        Notice that the return value is about a "delayed" state. Since it's
+        anti-noised by the number of consecutive frames, we can only determine
+        whether this is a blink or not after the consecutiveness ends.
+        """
         # Uses the base detector with EYE_AR_CONSEC_FRAMES to determine whether
         # there's an anti-noise blink.
         blinked: bool = False

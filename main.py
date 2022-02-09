@@ -18,6 +18,7 @@ from util.faceplots import (
     draw_landmarks_used_by_blink_detector,
     mark_face,
 )
+from util.image_type import ColorImage
 
 
 def clamp(value: float, v_min: float, v_max: float) -> float:
@@ -42,7 +43,7 @@ def get_biggest_face(faces: dlib.rectangles) -> Optional[dlib.rectangle]:
     return max(faces, default=None, key=methodcaller("area"))
 
 
-def get_face_area_frame(frame):
+def get_face_area_frame(frame: ColorImage) -> ColorImage:
     """Returns the main face area if the frame contains any face.
 
     Note that the area is about 2 times enlarged (1.4 x width and 1.4 x height)
@@ -135,7 +136,7 @@ with open("./ratio.txt", "w+") as f:
                 ratio_buffer.clear()
                 consec_count = 0
                 thres_maker.read_ratio(ratio)
-                blink_detector.ratio_threshold = thres_maker.threshold
+                blink_detector.ratio_threshold = float(thres_maker.threshold)
 
             if blink_detector.detect_blink(landmarks):
                 blink_count += 1
