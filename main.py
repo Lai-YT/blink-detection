@@ -91,6 +91,8 @@ time.sleep(1.0)
 # initialize the total number of blinks
 blink_count = 0
 consec_count = 0
+
+# store the ratios that are not yet known whether is within a blink or not
 ratio_buffer = []
 
 # EAR logging file
@@ -126,8 +128,8 @@ with open("./ratio.txt", "w+") as f:
                 consec_count += 1
             # settle when the consec ends
             else:
-                # not a real blink, give the ratios to maker
                 if consec_count < EYE_AR_CONSEC_FRAMES:
+                    # not a real blink, give the ratios to maker
                     for r in ratio_buffer:
                         thres_maker.read_ratio(r)
                 ratio_buffer.clear()
