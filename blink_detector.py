@@ -100,7 +100,7 @@ class DynamicThresholdMaker:
         """Updates the dynamic threshold if the number of sample ratios
         is enough.
 
-        Notte that the threshold = MEAN(sample EARs) - STD(sample EARs).
+        Note that the threshold = MEAN(sample EARs) - STD(sample EARs).
         """
         if len(self._samp_ratios) == self._num_thres:
             mean = self._cur_sum / self._num_thres
