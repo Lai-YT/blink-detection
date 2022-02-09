@@ -55,8 +55,8 @@ class DynamicThresholdMaker:
 
     @property
     def threshold(self) -> Decimal:
-        """Returns the dynamic threshold if the number of sample ratios
-        is enough; otherwise the temporary threshold.
+        """The dynamic threshold; temporary threshold if the number of sample
+        ratios is not yet reliable.
         """
         return self._dyn_thres
 
