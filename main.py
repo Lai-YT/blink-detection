@@ -11,12 +11,14 @@ from imutils import face_utils
 from blink_detector import (
     AntiNoiseBlinkDetector,
     BlinkDetector,
+    DynamicThresholdMaker,
 )
 from util.color import RED
 from util.faceplots import (
     draw_landmarks_used_by_blink_detector,
     mark_face,
 )
+from util.image_type import ColorImage
 
 
 def clamp(value: float, v_min: float, v_max: float) -> float:
@@ -41,7 +43,7 @@ def get_biggest_face(faces: dlib.rectangles) -> Optional[dlib.rectangle]:
     return max(faces, default=None, key=methodcaller("area"))
 
 
-def get_face_area_frame(frame):
+def get_face_area_frame(frame: ColorImage) -> ColorImage:
     """Returns the main face area if the frame contains any face.
 
     Note that the area is about 2 times enlarged (1.4 x width and 1.4 x height)
@@ -79,6 +81,9 @@ predictor = dlib.shape_predictor("./shape_predictor_68_face_landmarks.dat")
 print("[INFO] preparing blink detector...")
 blink_detector = AntiNoiseBlinkDetector(EYE_AR_THRESH, EYE_AR_CONSEC_FRAMES)
 
+print("[INFO] initializng threshold maker...")
+thres_maker = DynamicThresholdMaker(EYE_AR_THRESH, 1500)
+
 # start the video stream
 print("[INFO] starting video stream...")
 cam = cv2.VideoCapture(0)
@@ -86,6 +91,10 @@ time.sleep(1.0)
 
 # initialize the total number of blinks
 blink_count = 0
+consec_count = 0
+
+# store the ratios that are not yet known whether is within a blink or not
+ratio_buffer = []
 
 # EAR logging file
 with open("./ratio.txt", "w+") as f:
@@ -113,14 +122,28 @@ with open("./ratio.txt", "w+") as f:
             # array
             shape = predictor(gray, face)
             landmarks = face_utils.shape_to_np(shape)
+            ratio = BlinkDetector.get_average_eye_aspect_ratio(landmarks)
+
+            if ratio < blink_detector.ratio_threshold:
+                ratio_buffer.append(ratio)
+                consec_count += 1
+            # settle when the consec ends
+            else:
+                if consec_count < EYE_AR_CONSEC_FRAMES:
+                    # not a real blink, give the ratios to maker
+                    for r in ratio_buffer:
+                        thres_maker.read_ratio(r)
+                ratio_buffer.clear()
+                consec_count = 0
+                thres_maker.read_ratio(ratio)
+                blink_detector.ratio_threshold = float(thres_maker.threshold)
 
             if blink_detector.detect_blink(landmarks):
                 blink_count += 1
                 # the one right after an end of blink is marked
                 f.write("* ")
 
-            ratio = BlinkDetector.get_average_eye_aspect_ratio(landmarks)
-            f.write(f"{ratio:.3f}\n")
+            f.write(f"{ratio:.3f} {blink_detector.ratio_threshold:.3f}\n")
 
             frame = draw_landmarks_used_by_blink_detector(frame, landmarks)
             # draw the total number of blinks on the frame along with
