@@ -136,7 +136,7 @@ with open("./ratio.txt", "w+") as f:
                 ratio_buffer.clear()
                 consec_count = 0
                 thres_maker.read_ratio(ratio)
-                blink_detector.ratio_threshold = float(thres_maker.threshold)
+                blink_detector.ratio_threshold = thres_maker.threshold
 
             if blink_detector.detect_blink(landmarks):
                 blink_count += 1
