@@ -100,13 +100,13 @@ class DynamicThresholdMaker:
         """Updates the dynamic threshold if the number of sample ratios
         is enough.
 
-        Note that the threshold = MEAN(sample EARs) - STD(sample EARs).
+        Note that the threshold = MEAN(sample EARs) - 1.5 * STD(sample EARs).
         """
         if len(self._samp_ratios) == self._num_thres:
             mean = self._cur_sum / self._num_thres
             mean_of_sq = self._cur_sum_of_sq / self._num_thres
             std = (mean_of_sq - mean * mean).sqrt()
-            self._dyn_thres = mean - std
+            self._dyn_thres = mean - Decimal("1.5") * std
 
 
 class BlinkDetector:
