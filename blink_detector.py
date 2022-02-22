@@ -2,17 +2,11 @@ import math
 import statistics
 from collections import deque
 from decimal import Decimal
-from enum import Enum, auto
 from typing import Deque, Tuple, Union
 
 import numpy as np
 from imutils import face_utils
 from nptyping import Int, NDArray
-
-
-class EyeSide(Enum):
-    LEFT  = auto()
-    RIGHT = auto()
 
 
 class DynamicThresholdMaker:
@@ -85,16 +79,22 @@ class DynamicThresholdMaker:
         self._update_dynamic_threshold()
 
     def _update_sums(self, new_ratio: Union[Decimal, float]) -> None:
-        # add new ratio
+        self._update_sums_by_adding_new_ratio(new_ratio)
+        if len(self._samp_ratios) > self._num_thres:
+            self._update_sums_by_removing_old_ratio()
+
+    def _update_sums_by_adding_new_ratio(
+            self,
+            new_ratio: Union[Decimal, float]) -> None:
         new_ratio = Decimal(new_ratio)
-        self._samp_ratios.append(new_ratio)
         self._cur_sum += new_ratio
         self._cur_sum_of_sq += new_ratio * new_ratio
-        # remove old ratio
-        if len(self._samp_ratios) > self._num_thres:
-            old_ratio = self._samp_ratios.popleft()
-            self._cur_sum -= old_ratio
-            self._cur_sum_of_sq -= old_ratio * old_ratio
+        self._samp_ratios.append(new_ratio)
+
+    def _update_sums_by_removing_old_ratio(self) -> None:
+        old_ratio = self._samp_ratios.popleft()
+        self._cur_sum -= old_ratio
+        self._cur_sum_of_sq -= old_ratio * old_ratio
 
     def _update_dynamic_threshold(self) -> None:
         """Updates the dynamic threshold if the number of sample ratios
@@ -142,12 +142,18 @@ class BlinkDetector:
         self._ratio_threshold = threshold
 
     @classmethod
-    def get_average_eye_aspect_ratio(cls, landmarks: NDArray[(68, 2), Int[32]]) -> Decimal:
+    def get_average_eye_aspect_ratio(
+            cls,
+            landmarks: NDArray[(68, 2), Int[32]]) -> Decimal:
         """Returns the averaged EAR of the two eyes."""
         # use the left and right eye coordinates to compute
         # the eye aspect ratio for both eyes
-        left_ratio = BlinkDetector._get_eye_aspect_ratio(cls._extract_eye(landmarks, EyeSide.LEFT))
-        right_ratio = BlinkDetector._get_eye_aspect_ratio(cls._extract_eye(landmarks, EyeSide.RIGHT))
+        left_ratio = BlinkDetector._get_eye_aspect_ratio(
+            cls._extract_left_eye(landmarks)
+        )
+        right_ratio = BlinkDetector._get_eye_aspect_ratio(
+            cls._extract_right_eye(landmarks)
+        )
 
         # average the eye aspect ratio together for both eyes
         return statistics.mean((left_ratio, right_ratio))
@@ -182,15 +188,18 @@ class BlinkDetector:
         return statistics.mean(vert) / statistics.mean(hor)
 
     @classmethod
-    def _extract_eye(cls, landmarks: NDArray[(68, 2), Int[32]], side: EyeSide) -> NDArray[(6, 2), Int[32]]:
-        eye: NDArray[(6, 2), Int[32]]
-        if side is EyeSide.LEFT:
-            eye = landmarks[cls.LEFT_EYE_START_END_IDXS[0]:cls.LEFT_EYE_START_END_IDXS[1]]
-        elif side is EyeSide.RIGHT:
-            eye = landmarks[cls.RIGHT_EYE_START_END_IDXS[0]:cls.RIGHT_EYE_START_END_IDXS[1]]
-        else:
-            raise TypeError(f'type of argument "side" must be "EyeSide", not "{type(side).__name__}"')
-        return eye
+    def _extract_left_eye(
+            cls,
+            landmarks: NDArray[(68, 2), Int[32]]) -> NDArray[(6, 2), Int[32]]:
+        return landmarks[cls.LEFT_EYE_START_END_IDXS[0]
+                         :cls.LEFT_EYE_START_END_IDXS[1]]
+
+    @classmethod
+    def _extract_right_eye(
+            cls,
+            landmarks: NDArray[(68, 2), Int[32]]) -> NDArray[(6, 2), Int[32]]:
+        return landmarks[cls.RIGHT_EYE_START_END_IDXS[0]
+                         :cls.RIGHT_EYE_START_END_IDXS[1]]
 
 
 class AntiNoiseBlinkDetector:
