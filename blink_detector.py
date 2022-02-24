@@ -17,6 +17,9 @@ class DynamicThresholdMaker:
     users.
     "Decimal" module is used to reduce round-off errors, provide better precision.
     """
+
+    HIGH_MEAN_LINE = Decimal("0.28")
+
     def __init__(
             self,
             temp_thres: Union[Decimal, float] = Decimal("0.24"),
@@ -99,14 +102,29 @@ class DynamicThresholdMaker:
     def _update_dynamic_threshold(self) -> None:
         """Updates the dynamic threshold if the number of sample ratios
         is enough.
-
-        Note that the threshold = MEAN(sample EARs) - 1.5 * STD(sample EARs).
         """
-        if len(self._samp_ratios) == self._num_thres:
-            mean = self._cur_sum / self._num_thres
-            mean_of_sq = self._cur_sum_of_sq / self._num_thres
-            std = (mean_of_sq - mean * mean).sqrt()
-            self._dyn_thres = mean - Decimal("1.5") * std
+        if self._is_not_yet_reliable():
+            return
+
+        self._calculate_mean_and_std()
+        if self._mean >= self.HIGH_MEAN_LINE:
+            self._use_big_offset()
+        else:
+            self._use_small_offset()
+
+    def _is_not_yet_reliable(self) -> bool:
+        return len(self._samp_ratios) < self._num_thres
+
+    def _calculate_mean_and_std(self) -> None:
+        self._mean = self._cur_sum / self._num_thres
+        mean_of_sq = self._cur_sum_of_sq / self._num_thres
+        self._std = (mean_of_sq - self._mean * self._mean).sqrt()
+
+    def _use_big_offset(self) -> None:
+        self._dyn_thres = self._mean - 2 * self._std
+
+    def _use_small_offset(self) -> None:
+        self._dyn_thres = self._mean - self._std
 
 
 class BlinkDetector:
