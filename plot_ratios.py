@@ -92,10 +92,13 @@ class RatioPlotter:
                 color=mcolors.CSS4_COLORS["aqua"], ls="--", linewidth=1)
 
     def _plot_blinks(self) -> None:
+        def is_blink(r: Union[float, str]) -> bool:
+            return r != "-"
+            
         pos = []
         blk = []
         for i, b in enumerate(self._blinks):
-            if b != "-":
+            if is_blink(b):
                 pos.append(i + 1)
                 blk.append(b)
         self._ax.scatter(pos, blk, color="r")
