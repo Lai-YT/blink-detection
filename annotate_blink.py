@@ -26,7 +26,7 @@ class BlinkVideoAnnotator:
 
         for frame_no, frame in enumerate(self._frames_from_video()):
             cv2.destroyAllWindows()
-            cv2.imshow(f"no. {frame_no}", imutils.resize(frame, width=900))
+            self._show_frame_in_middle_of_screen(frame_no, frame)
             self._annotate_frame_num_by_key(frame_no)
 
     def get_annotations(self) -> List[int]:
@@ -46,6 +46,13 @@ class BlinkVideoAnnotator:
 
     def __exit__(self, *exc_info) -> None:
         self.write_annotations()
+
+    @staticmethod
+    def _show_frame_in_middle_of_screen(frame_no: int, frame: ColorImage) -> None:
+        win_name = f"no. {frame_no}"
+        cv2.namedWindow(win_name)
+        cv2.moveWindow(win_name, 250, 80)
+        cv2.imshow(win_name, imutils.resize(frame, width=900))
 
     def _annotate_frame_num_by_key(self, frame_no: int) -> None:
         while True:
@@ -71,7 +78,7 @@ class BlinkVideoAnnotator:
         while self._video.isOpened():
             ret, frame = self._video.read()
             if not ret:
-                raise StopIteration
+                break
             yield frame
 
     def _generate_json_file_path(self) -> None:
