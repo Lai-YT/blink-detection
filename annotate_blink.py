@@ -14,13 +14,16 @@ from util.image_type import ColorImage
 
 class BlinkVideoAnnotator:
     def __init__(self, filename: str) -> None:
-        self._file: Path = (Path.cwd() / filename).resolve()
+        self._video_file: Path = (Path.cwd() / filename).resolve()
         self._video = cv2.VideoCapture(
-            str(self._file)
+            str(self._video_file)
         )
         self._num_of_frames_that_blink: List[int] = []
 
     def start_annotating(self) -> None:
+        print(f"Annotating blinks on {self._video_file.name}, which has "
+              f"{self._video.get(cv2.CAP_PROP_FRAME_COUNT)} frames...")
+
         for frame_no, frame in enumerate(self._frames_from_video()):
             cv2.destroyAllWindows()
             cv2.imshow(f"no. {frame_no}", imutils.resize(frame, width=900))
@@ -30,16 +33,11 @@ class BlinkVideoAnnotator:
         return self._num_of_frames_that_blink.copy()
 
     def write_annotations(self) -> None:
-        def add_trailing_timestamp_to(text: str) -> str:
-            print(text)
-            return f"{text}-{get_timestamp()}"
+        self._generate_json_file_path()
 
-        def get_timestamp() -> str:
-            return datetime.now().strftime("%Y%m%d-%H%M%S")
+        print(f"Writing the annotations into {self._json_file.name}...")
 
-        stem = add_trailing_timestamp_to(f"ann-{self._file.stem}")
-        json_file = (Path.cwd() / stem).with_suffix(".json")
-        json_file.write_text(
+        self._json_file.write_text(
             json.dumps(self._num_of_frames_that_blink, indent=4)
         )
 
@@ -75,6 +73,16 @@ class BlinkVideoAnnotator:
             if not ret:
                 raise StopIteration
             yield frame
+
+    def _generate_json_file_path(self) -> None:
+        def add_trailing_timestamp_to(text: str) -> str:
+            return f"{text}-{get_timestamp()}"
+
+        def get_timestamp() -> str:
+            return datetime.now().strftime("%Y%m%d-%H%M%S")
+
+        stem = add_trailing_timestamp_to(f"ann-{self._video_file.stem}")
+        self._json_file = (Path.cwd() / stem).with_suffix(".json")
 
 
 def main(video_to_annotate: str) -> None:
