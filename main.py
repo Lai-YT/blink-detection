@@ -1,11 +1,13 @@
 import cv2
 import dlib
-import imutils
+import sys
 import time
 from functools import partial
 from operator import methodcaller
+from pathlib import Path
 from typing import Optional
 
+import imutils
 from imutils import face_utils
 
 from blink_detector import (
@@ -43,124 +45,149 @@ def get_biggest_face(faces: dlib.rectangles) -> Optional[dlib.rectangle]:
     return max(faces, default=None, key=methodcaller("area"))
 
 
-def get_face_area_frame(frame: ColorImage) -> ColorImage:
-    """Returns the main face area if the frame contains any face.
+def main(video: Optional[Path] = None) -> None:
 
-    Note that the area is about 2 times enlarged (1.4 x width and 1.4 x height)
-    to make sure the face isn't cut.
-    """
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    faces = detector(gray)
-    face = get_biggest_face(faces)
-    if face is not None:
-        # extract the face area from the frame
-        fx, fy, fw, fh = face_utils.rect_to_bb(face)
-        ih, iw, _ = frame.shape
+    def get_face_area_frame(frame: ColorImage) -> ColorImage:
+        """Returns the main face area if the frame contains any face.
 
-        clamp_height = partial(clamp, v_min=0, v_max=ih)
-        clamp_width = partial(clamp, v_min=0, v_max=iw)
-        # NOTE: this makes a view, not copy
-        frame = frame[int(clamp_height(fy-0.2*fh)):int(clamp_height(fy+1.2*fh)),
-                      int(clamp_width(fx-0.2*fw)):int(clamp_width(fx+1.2*fw))]
-    return frame
-
-
-# define two constants, one for the eye aspect ratio to indicate
-# blink and then a second constant for the number of consecutive
-# frames the eye must be below the threshold
-EYE_AR_THRESH = 0.24
-EYE_AR_CONSEC_FRAMES = 3  # the face area mode consumes more computaional time,
-                          # 2 would be more suitable
-
-# initialize dlib's face detector (HOG-based) and then create
-# the facial landmark predictor
-print("[INFO] loading facial landmark predictor...")
-detector = dlib.get_frontal_face_detector()
-predictor = dlib.shape_predictor("./shape_predictor_68_face_landmarks.dat")
-
-print("[INFO] preparing blink detector...")
-blink_detector = AntiNoiseBlinkDetector(EYE_AR_THRESH, EYE_AR_CONSEC_FRAMES)
-
-print("[INFO] initializng threshold maker...")
-thres_maker = DynamicThresholdMaker(EYE_AR_THRESH, 1500)
-
-# start the video stream
-print("[INFO] starting video stream...")
-cam = cv2.VideoCapture(0)
-time.sleep(1.0)
-
-# initialize the total number of blinks
-blink_count = 0
-consec_count = 0
-
-# store the ratios that are not yet known whether is within a blink or not
-ratio_buffer = []
-
-# EAR logging file
-with open("./ratio.txt", "w+") as f:
-    # loop over frames from the video stream
-    while cam.isOpened():
-
-        # grab the frame from the camera, resize
-        # it, and convert it to grayscale channels
-        _, frame = cam.read()
-
-        # Uncomment the following line to process blink detection on the
-        # extracted face area.
-        # frame = get_face_area_frame(frame)
-
-        frame = imutils.resize(frame, width=600)
+        Note that the area is about 2 times enlarged (1.4 x width and 1.4 x height)
+        to make sure the face isn't cut.
+        """
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
-        # detect faces in the grayscale frame
         faces = detector(gray)
         face = get_biggest_face(faces)
-
         if face is not None:
-            # determine the facial landmarks for the face area, then
-            # convert the facial landmark (x, y)-coordinates to a NumPy
-            # array
-            shape = predictor(gray, face)
-            landmarks = face_utils.shape_to_np(shape)
-            ratio = BlinkDetector.get_average_eye_aspect_ratio(landmarks)
+            # extract the face area from the frame
+            fx, fy, fw, fh = face_utils.rect_to_bb(face)
+            ih, iw, _ = frame.shape
 
-            if ratio < blink_detector.ratio_threshold:
-                ratio_buffer.append(ratio)
-                consec_count += 1
-            # settle when the consec ends
-            else:
-                if consec_count < EYE_AR_CONSEC_FRAMES:
-                    # not a real blink, give the ratios to maker
-                    for r in ratio_buffer:
-                        thres_maker.read_ratio(r)
-                ratio_buffer.clear()
-                consec_count = 0
-                thres_maker.read_ratio(ratio)
-                blink_detector.ratio_threshold = float(thres_maker.threshold)
+            clamp_height = partial(clamp, v_min=0, v_max=ih)
+            clamp_width = partial(clamp, v_min=0, v_max=iw)
+            # NOTE: this makes a view, not copy
+            frame = frame[int(clamp_height(fy-0.2*fh)):int(clamp_height(fy+1.2*fh)),
+                          int(clamp_width(fx-0.2*fw)):int(clamp_width(fx+1.2*fw))]
+        return frame
 
-            if blink_detector.detect_blink(landmarks):
-                blink_count += 1
-                # the one right after an end of blink is marked
-                f.write("* ")
+    # define two constants, one for the eye aspect ratio to indicate
+    # blink and then a second constant for the number of consecutive
+    # frames the eye must be below the threshold
+    EYE_AR_THRESH = 0.24
+    EYE_AR_CONSEC_FRAMES = 3  # the face area mode consumes more computaional time,
+                              # 2 would be more suitable
 
-            f.write(f"{ratio:.3f} {blink_detector.ratio_threshold:.3f}\n")
+    # initialize dlib's face detector (HOG-based) and then create
+    # the facial landmark predictor
+    print("[INFO] loading facial landmark predictor...")
+    detector = dlib.get_frontal_face_detector()
+    predictor = dlib.shape_predictor("./shape_predictor_68_face_landmarks.dat")
 
-            frame = draw_landmarks_used_by_blink_detector(frame, landmarks)
-            # draw the total number of blinks on the frame along with
-            # the computed eye aspect ratio for the frame
-            cv2.putText(frame, f"Blinks: {blink_count}", (10, 30),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, RED, 2)
-            cv2.putText(frame, f"EAR: {ratio:.2f}", (450, 30),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, RED, 2)
+    print("[INFO] preparing blink detector...")
+    blink_detector = AntiNoiseBlinkDetector(EYE_AR_THRESH, EYE_AR_CONSEC_FRAMES)
 
-        # show the frame
-        cv2.imshow("Frame", frame)
-        key = cv2.waitKey(1) & 0xFF
+    print("[INFO] initializng threshold maker...")
+    thres_maker = DynamicThresholdMaker(EYE_AR_THRESH, 500)
 
-        # if the `q` key was pressed, break from the loop
-        if key == ord("q"):
-            break
+    if video is None:
+        source = 0
+    else:
+        source = str(video)
+    print("[INFO] starting video stream...")
+    cam = cv2.VideoCapture(source)
+    time.sleep(1.0)
 
-# do a bit of cleanup
-cv2.destroyAllWindows()
-cam.release()
+    # initialize the total number of blinks
+    blink_count = 0
+    consec_count = 0
+
+    # store the ratios that are not yet known whether is within a blink or not
+    ratio_buffer = []
+
+    # EAR logging file
+    if video is None:
+        output_file = Path.cwd() / "ratio.txt"
+    else:
+        output_file = video.with_suffix(".txt")
+
+    with output_file.open("w+") as f:
+        # loop over frames from the video stream
+        while cam.isOpened():
+
+            ret, frame = cam.read()
+            if not ret:
+                print("Can't receive frame (stream end?). Exiting ...")
+                break
+
+            # Uncomment the following line to process blink detection on the
+            # extracted face area.
+            frame = get_face_area_frame(frame)
+
+            frame = imutils.resize(frame, width=600)
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+            # detect faces in the grayscale frame
+            faces = detector(gray)
+            face = get_biggest_face(faces)
+            if face is None:
+                f.write("x\n")
+            elif face is not None:
+                # determine the facial landmarks for the face area, then
+                # convert the facial landmark (x, y)-coordinates to a NumPy
+                # array
+                shape = predictor(gray, face)
+                landmarks = face_utils.shape_to_np(shape)
+                ratio = BlinkDetector.get_average_eye_aspect_ratio(landmarks)
+
+                if ratio < blink_detector.ratio_threshold:
+                    ratio_buffer.append(ratio)
+                    consec_count += 1
+                # settle when the consec ends
+                else:
+                    if consec_count < EYE_AR_CONSEC_FRAMES:
+                        # not a real blink, give the ratios to maker
+                        for r in ratio_buffer:
+                            thres_maker.read_ratio(r)
+                    ratio_buffer.clear()
+                    consec_count = 0
+                    thres_maker.read_ratio(ratio)
+                    blink_detector.ratio_threshold = thres_maker.threshold
+
+                if blink_detector.detect_blink(landmarks):
+                    blink_count += 1
+                    # the one right after an end of blink is marked
+                    f.write("* ")
+
+                f.write(f"{ratio:.3f} {blink_detector.ratio_threshold:.3f}")
+                # FIXME: I'm hacking...
+                if hasattr(thres_maker, "_mean"):
+                    f.write(f" {thres_maker._mean:.3f}")
+                f.write("\n")
+
+                frame = draw_landmarks_used_by_blink_detector(frame, landmarks)
+                # draw the total number of blinks on the frame along with
+                # the computed eye aspect ratio for the frame
+                cv2.putText(frame, f"Blinks: {blink_count}", (10, 30),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, RED, 2)
+                cv2.putText(frame, f"EAR: {ratio:.2f}", (450, 30),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, RED, 2)
+
+            # show the frame
+            cv2.imshow("Frame", frame)
+            key = cv2.waitKey(1) & 0xFF
+
+            # if the `q` key was pressed, break from the loop
+            if key == ord("q"):
+                break
+        print(f"Total blink: {blink_count}")
+
+    # do a bit of cleanup
+    cv2.destroyAllWindows()
+    cam.release()
+
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        raise RuntimeError(f"\n\t usage: python {__file__} [./$(file_path) | live]")
+    if sys.argv[1] == "live":
+        main()
+    else:
+        main(Path.cwd() / sys.argv[1])

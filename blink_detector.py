@@ -2,17 +2,11 @@ import math
 import statistics
 from collections import deque
 from decimal import Decimal
-from enum import Enum, auto
 from typing import Deque, Tuple, Union
 
 import numpy as np
 from imutils import face_utils
 from nptyping import Int, NDArray
-
-
-class EyeSide(Enum):
-    LEFT  = auto()
-    RIGHT = auto()
 
 
 class DynamicThresholdMaker:
@@ -23,9 +17,12 @@ class DynamicThresholdMaker:
     users.
     "Decimal" module is used to reduce round-off errors, provide better precision.
     """
+
+    HIGH_MEAN_LINE = Decimal("0.28")
+
     def __init__(
             self,
-            temp_thres: Union[Decimal, float] = Decimal('0.24'),
+            temp_thres: Union[Decimal, float] = Decimal("0.24"),
             num_thres: int = 100) -> None:
         """
         Arguments:
@@ -85,28 +82,49 @@ class DynamicThresholdMaker:
         self._update_dynamic_threshold()
 
     def _update_sums(self, new_ratio: Union[Decimal, float]) -> None:
-        # add new ratio
+        self._update_sums_by_adding_new_ratio(new_ratio)
+        if len(self._samp_ratios) > self._num_thres:
+            self._update_sums_by_removing_old_ratio()
+
+    def _update_sums_by_adding_new_ratio(
+            self,
+            new_ratio: Union[Decimal, float]) -> None:
         new_ratio = Decimal(new_ratio)
-        self._samp_ratios.append(new_ratio)
         self._cur_sum += new_ratio
         self._cur_sum_of_sq += new_ratio * new_ratio
-        # remove old ratio
-        if len(self._samp_ratios) > self._num_thres:
-            old_ratio = self._samp_ratios.popleft()
-            self._cur_sum -= old_ratio
-            self._cur_sum_of_sq -= old_ratio * old_ratio
+        self._samp_ratios.append(new_ratio)
+
+    def _update_sums_by_removing_old_ratio(self) -> None:
+        old_ratio = self._samp_ratios.popleft()
+        self._cur_sum -= old_ratio
+        self._cur_sum_of_sq -= old_ratio * old_ratio
 
     def _update_dynamic_threshold(self) -> None:
         """Updates the dynamic threshold if the number of sample ratios
         is enough.
-
-        Note that the threshold = MEAN(sample EARs) - STD(sample EARs).
         """
-        if len(self._samp_ratios) == self._num_thres:
-            mean = self._cur_sum / self._num_thres
-            mean_of_sq = self._cur_sum_of_sq / self._num_thres
-            std = (mean_of_sq - mean * mean).sqrt()
-            self._dyn_thres = mean - std
+        if self._is_not_yet_reliable():
+            return
+
+        self._calculate_mean_and_std()
+        if self._mean >= self.HIGH_MEAN_LINE:
+            self._use_big_offset()
+        else:
+            self._use_small_offset()
+
+    def _is_not_yet_reliable(self) -> bool:
+        return len(self._samp_ratios) < self._num_thres
+
+    def _calculate_mean_and_std(self) -> None:
+        self._mean = self._cur_sum / self._num_thres
+        mean_of_sq = self._cur_sum_of_sq / self._num_thres
+        self._std = (mean_of_sq - self._mean * self._mean).sqrt()
+
+    def _use_big_offset(self) -> None:
+        self._dyn_thres = self._mean - 2 * self._std
+
+    def _use_small_offset(self) -> None:
+        self._dyn_thres = self._mean - self._std
 
 
 class BlinkDetector:
@@ -125,29 +143,35 @@ class BlinkDetector:
     LEFT_EYE_START_END_IDXS:  Tuple[int, int] = face_utils.FACIAL_LANDMARKS_IDXS["left_eye"]
     RIGHT_EYE_START_END_IDXS: Tuple[int, int] = face_utils.FACIAL_LANDMARKS_IDXS["right_eye"]
 
-    def __init__(self, ratio_threshold: float = 0.24) -> None:
+    def __init__(self, ratio_threshold: Union[Decimal, float] = Decimal("0.24")) -> None:
         """
         Arguments:
             ratio_threshold:
                 Having ratio lower than the threshold is considered to be a blink.
         """
-        self._ratio_threshold = ratio_threshold
+        self._ratio_threshold = Decimal(ratio_threshold)
 
     @property
-    def ratio_threshold(self) -> float:
+    def ratio_threshold(self) -> Decimal:
         return self._ratio_threshold
 
     @ratio_threshold.setter
-    def ratio_threshold(self, threshold: float) -> None:
+    def ratio_threshold(self, threshold: Decimal) -> None:
         self._ratio_threshold = threshold
 
     @classmethod
-    def get_average_eye_aspect_ratio(cls, landmarks: NDArray[(68, 2), Int[32]]) -> float:
+    def get_average_eye_aspect_ratio(
+            cls,
+            landmarks: NDArray[(68, 2), Int[32]]) -> Decimal:
         """Returns the averaged EAR of the two eyes."""
         # use the left and right eye coordinates to compute
         # the eye aspect ratio for both eyes
-        left_ratio = BlinkDetector._get_eye_aspect_ratio(cls._extract_eye(landmarks, EyeSide.LEFT))
-        right_ratio = BlinkDetector._get_eye_aspect_ratio(cls._extract_eye(landmarks, EyeSide.RIGHT))
+        left_ratio = BlinkDetector._get_eye_aspect_ratio(
+            cls._extract_left_eye(landmarks)
+        )
+        right_ratio = BlinkDetector._get_eye_aspect_ratio(
+            cls._extract_right_eye(landmarks)
+        )
 
         # average the eye aspect ratio together for both eyes
         return statistics.mean((left_ratio, right_ratio))
@@ -161,7 +185,7 @@ class BlinkDetector:
         return ratio < self._ratio_threshold
 
     @staticmethod
-    def _get_eye_aspect_ratio(eye: NDArray[(6, 2), Int[32]]) -> float:
+    def _get_eye_aspect_ratio(eye: NDArray[(6, 2), Int[32]]) -> Decimal:
         """Returns the EAR of eye.
 
         Eye aspect ratio is the ratio between height and width of the eye.
@@ -171,26 +195,29 @@ class BlinkDetector:
         # compute the euclidean distances between the two sets of
         # vertical eye landmarks
         vert = []
-        vert.append(math.dist(eye[1], eye[5]))
-        vert.append(math.dist(eye[2], eye[4]))
+        vert.append(Decimal(math.dist(eye[1], eye[5])))
+        vert.append(Decimal(math.dist(eye[2], eye[4])))
 
         # compute the euclidean distance between the horizontal
         # eye landmarks
         hor = []
-        hor.append(math.dist(eye[0], eye[3]))
+        hor.append(Decimal(math.dist(eye[0], eye[3])))
 
         return statistics.mean(vert) / statistics.mean(hor)
 
     @classmethod
-    def _extract_eye(cls, landmarks: NDArray[(68, 2), Int[32]], side: EyeSide) -> NDArray[(6, 2), Int[32]]:
-        eye: NDArray[(6, 2), Int[32]]
-        if side is EyeSide.LEFT:
-            eye = landmarks[cls.LEFT_EYE_START_END_IDXS[0]:cls.LEFT_EYE_START_END_IDXS[1]]
-        elif side is EyeSide.RIGHT:
-            eye = landmarks[cls.RIGHT_EYE_START_END_IDXS[0]:cls.RIGHT_EYE_START_END_IDXS[1]]
-        else:
-            raise TypeError(f'type of argument "side" must be "EyeSide", not "{type(side).__name__}"')
-        return eye
+    def _extract_left_eye(
+            cls,
+            landmarks: NDArray[(68, 2), Int[32]]) -> NDArray[(6, 2), Int[32]]:
+        return landmarks[cls.LEFT_EYE_START_END_IDXS[0]
+                         :cls.LEFT_EYE_START_END_IDXS[1]]
+
+    @classmethod
+    def _extract_right_eye(
+            cls,
+            landmarks: NDArray[(68, 2), Int[32]]) -> NDArray[(6, 2), Int[32]]:
+        return landmarks[cls.RIGHT_EYE_START_END_IDXS[0]
+                         :cls.RIGHT_EYE_START_END_IDXS[1]]
 
 
 class AntiNoiseBlinkDetector:
@@ -199,7 +226,10 @@ class AntiNoiseBlinkDetector:
     agrees a "blink" only if it continues for a sufficient number of frames.
     """
 
-    def __init__(self, ratio_threshold: float = 0.24, consec_frame: int = 3) -> None:
+    def __init__(
+            self,
+            ratio_threshold: Union[Decimal, float] = Decimal("0.24"),
+            consec_frame: int = 3) -> None:
         """
         Arguments:
             ratio_threshold: The eye aspect ratio to indicate blink.
@@ -214,11 +244,11 @@ class AntiNoiseBlinkDetector:
         self._consec_count: int = 0
 
     @property
-    def ratio_threshold(self) -> float:
+    def ratio_threshold(self) -> Decimal:
         return self._base_detector.ratio_threshold
 
     @ratio_threshold.setter
-    def ratio_threshold(self, threshold: float) -> None:
+    def ratio_threshold(self, threshold: Decimal) -> None:
         self._base_detector.ratio_threshold = threshold
 
     def detect_blink(self, landmarks: NDArray[(68, 2), Int[32]]) -> bool:
