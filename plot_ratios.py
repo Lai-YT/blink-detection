@@ -22,10 +22,10 @@ class RatioPlotter:
     MISS_FACE_FILLER = np.nan
 
     def __init__(self, output_dir: Path) -> None:
-        self._ratios: List[Union[float, np.nan]] = []
-        self._blinks: List[Union[float, np.nan]] = []
-        self._thress: List[Union[float, np.nan]] = []
-        self._means: List[Union[float, np.nan]] = []
+        self._ratios: List[Union[float]] = []
+        self._blinks: List[Union[float]] = []
+        self._thress: List[Union[float]] = []
+        self._means: List[Union[float]] = []
         self._output_dir = output_dir
 
     def read_samples_from(self, filename: str) -> None:
