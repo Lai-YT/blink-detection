@@ -24,13 +24,16 @@ class BlinkDetector:
     LEFT_EYE_START_END_IDXS:  Tuple[int, int] = face_utils.FACIAL_LANDMARKS_IDXS["left_eye"]
     RIGHT_EYE_START_END_IDXS: Tuple[int, int] = face_utils.FACIAL_LANDMARKS_IDXS["right_eye"]
 
-    def __init__(self, ratio_threshold: Union[Decimal, float] = Decimal("0.24")) -> None:
+    def __init__(
+            self,
+            ratio_threshold: Union[Decimal, float] = Decimal("0.24")) -> None:
         """
         Arguments:
             ratio_threshold:
                 Having ratio lower than the threshold is considered to be a blink.
         """
         self._ratio_threshold = Decimal(ratio_threshold)
+        self._is_blinking = False
 
     @property
     def ratio_threshold(self) -> Decimal:
@@ -57,13 +60,16 @@ class BlinkDetector:
         # average the eye aspect ratio together for both eyes
         return statistics.mean((left_ratio, right_ratio))
 
-    def detect_blink(self, landmarks: NDArray[(68, 2), Int[32]]) -> bool:
-        """Returns whether the eyes in the face landmarks are blinking or not."""
+    def detect_blink(self, landmarks: NDArray[(68, 2), Int[32]]) -> None:
         if not landmarks.any():
             raise ValueError("landmarks should represent a face")
 
         ratio = BlinkDetector.get_average_eye_aspect_ratio(landmarks)
-        return ratio < self._ratio_threshold
+        self._is_blinking = (ratio < self._ratio_threshold)
+
+    def is_blinking(self) -> bool:
+        """Returns the result of the latest detection."""
+        return self._is_blinking
 
     @staticmethod
     def _get_eye_aspect_ratio(eye: NDArray[(6, 2), Int[32]]) -> Decimal:
@@ -101,10 +107,11 @@ class BlinkDetector:
                          :cls.RIGHT_EYE_START_END_IDXS[1]]
 
 
-class AntiNoiseBlinkDetector:
-    """Noise or face move may cause a false-positive "blink".
-    AntiNoiseBlinkDetector uses a normal BlinkDetector as its underlayer but
-    agrees a "blink" only if it continues for a sufficient number of frames.
+class AntiNoiseBlinkDetector(BlinkDetector):
+    """AntiNoiseBlinkDetector agrees a "blink" only if it continues for a
+    sufficient number of frames.
+
+    To reduce the false-positive "blink" caused by noise or face movement.
     """
 
     def __init__(
@@ -118,36 +125,25 @@ class AntiNoiseBlinkDetector:
                 The number of consecutive frames the eye must be below the
                 threshold to indicate an anti-noise blink.
         """
-        super().__init__()
-        # the underlaying BlinkDetector
-        self._base_detector = BlinkDetector(ratio_threshold)
+        super().__init__(ratio_threshold)
         self._consec_frame = consec_frame
         self._consec_count: int = 0
 
-    @property
-    def ratio_threshold(self) -> Decimal:
-        return self._base_detector.ratio_threshold
-
-    @ratio_threshold.setter
-    def ratio_threshold(self, threshold: Decimal) -> None:
-        self._base_detector.ratio_threshold = threshold
-
-    def detect_blink(self, landmarks: NDArray[(68, 2), Int[32]]) -> bool:
-        """Returns whether the eyes in the face landmarks are blinking or not.
-
-        Notice that the return value is about a "delayed" state. Since it's
-        anti-noised by the number of consecutive frames, we can only determine
-        whether this is a blink or not after the consecutiveness ends.
+    # Override
+    def detect_blink(self, landmarks: NDArray[(68, 2), Int[32]]) -> None:
         """
-        # Uses the base detector with EYE_AR_CONSEC_FRAMES to determine whether
+        The detection is about a "delayed" state. Since it's anti-noised by
+        the number of consecutive frames, we can only determine whether this is
+        a blink or not after the consecutiveness ends.
+        """
+        super().detect_blink(landmarks)
+        # Uses the base detector with consec_frame to determine whether
         # there's an anti-noise blink.
-        blinked: bool = False
-        if self._base_detector.detect_blink(landmarks):
+        if super().is_blinking():
            self._consec_count += 1
+           self._is_blinking = False
         else:
-            # if the eyes were closed for a sufficient number of frames,
-            # it's considered to be a real blink
-            if self._consec_count >= self._consec_frame:
-                blinked = True
+            # If the eyes were closed for a sufficient number of frames,
+            # it's considered to be a real blink.
+            self._is_blinking = (self._consec_count >= self._consec_frame)
             self._consec_count = 0
-        return blinked

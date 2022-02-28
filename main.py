@@ -151,7 +151,8 @@ def main(video: Optional[Path] = None) -> None:
                     thres_maker.read_ratio(ratio)
                     blink_detector.ratio_threshold = thres_maker.threshold
 
-                if blink_detector.detect_blink(landmarks):
+                blink_detector.detect_blink(landmarks)
+                if blink_detector.is_blinking():
                     blink_count += 1
                     # the one right after an end of blink is marked
                     f.write("* ")
