@@ -169,14 +169,14 @@ class RatioPlotter:
 
     def _get_annotate_blink_filename(self) -> str:
         # The annotate file has a suffix of "_no".
-        return f"{self._get_stem_without_win_size()}_no.json"
+        return f"{self._get_stem_without_info_encoding()}_no.json"
 
-    def _get_stem_without_win_size(self) -> str:
-        # The original stem of filename encoded a "_w{win_size}" to indicate the
+    def _get_stem_without_info_encoding(self) -> str:
+        # The original stem of filename encode info to indicate the
         # window size used in this specific detection.
         info = self._stem.split("_")
-        info_without_w = filterfalse(methodcaller("startswith", "w"), info)
-        return "_".join(info_without_w)
+        # first 2 is the pure name
+        return "_".join(info[:2])
 
     def _get_win_size_from_filename(self, fallback: int) -> None:
         info = self._stem.split("_")
