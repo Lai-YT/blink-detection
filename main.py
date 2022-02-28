@@ -90,6 +90,8 @@ def main(video: Optional[Path] = None) -> None:
     if video is None:
         source = 0
     else:
+        if not video.exists():
+            raise ValueError(f"{video} does not exist")
         source = str(video)
     print("[INFO] starting video stream...")
     cam = cv2.VideoCapture(source)
