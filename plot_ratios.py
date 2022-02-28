@@ -2,7 +2,6 @@ import json
 import math
 import sys
 from itertools import filterfalse
-from operator import methodcaller
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, TextIO, Union
 
