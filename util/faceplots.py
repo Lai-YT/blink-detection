@@ -3,7 +3,7 @@ from typing import Tuple
 import cv2
 from nptyping import Int, NDArray
 
-from blink_detector import BlinkDetector
+from detector import BlinkDetector
 from util.color import BGR, GREEN, MAGENTA
 from util.image_type import ColorImage
 
@@ -13,7 +13,7 @@ def mark_face(
         face: Tuple[int, int, int, int],
         landmarks: NDArray[(68, 2), Int[32]]) -> None:
     """Modifies the canvas with face area framed up and landmarks dotted.
-    
+
     Arguments:
         canvas: The image to mark face on.
         face: Upper-left x, y coordinates of face and it's width, height.

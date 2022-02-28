@@ -5,16 +5,13 @@ import time
 from functools import partial
 from operator import methodcaller
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 import imutils
 from imutils import face_utils
 
-from blink_detector import (
-    AntiNoiseBlinkDetector,
-    BlinkDetector,
-    DynamicThresholdMaker,
-)
+from detector import AntiNoiseBlinkDetector, BlinkDetector
+from threshold import DynamicThresholdMaker
 from util.color import RED
 from util.faceplots import (
     draw_landmarks_used_by_blink_detector,
@@ -87,9 +84,12 @@ def main(video: Optional[Path] = None) -> None:
     print("[INFO] initializng threshold maker...")
     thres_maker = DynamicThresholdMaker(EYE_AR_THRESH, 500)
 
+    source: Union[int, str]
     if video is None:
         source = 0
     else:
+        if not video.exists():
+            raise ValueError(f"{video} does not exist")
         source = str(video)
     print("[INFO] starting video stream...")
     cam = cv2.VideoCapture(source)
@@ -151,7 +151,8 @@ def main(video: Optional[Path] = None) -> None:
                     thres_maker.read_ratio(ratio)
                     blink_detector.ratio_threshold = thres_maker.threshold
 
-                if blink_detector.detect_blink(landmarks):
+                blink_detector.detect_blink(landmarks)
+                if blink_detector.is_blinking():
                     blink_count += 1
                     # the one right after an end of blink is marked
                     f.write("* ")
