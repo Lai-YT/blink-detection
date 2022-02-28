@@ -4,6 +4,8 @@ from typing import Deque, Union
 
 from nptyping import Int, NDArray
 
+from detector import BlinkDetector 
+
 
 class DynamicThresholdMaker:
     """Take a certain number of landmarks that contains face to dynamically

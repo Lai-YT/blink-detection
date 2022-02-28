@@ -5,7 +5,7 @@ import time
 from functools import partial
 from operator import methodcaller
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 import imutils
 from imutils import face_utils
@@ -84,6 +84,7 @@ def main(video: Optional[Path] = None) -> None:
     print("[INFO] initializng threshold maker...")
     thres_maker = DynamicThresholdMaker(EYE_AR_THRESH, 500)
 
+    source: Union[int, str]
     if video is None:
         source = 0
     else:
