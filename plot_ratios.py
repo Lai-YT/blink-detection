@@ -2,6 +2,7 @@ import json
 import math
 import sys
 from itertools import filterfalse
+from operator import methodcaller
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, TextIO, Union
 
@@ -27,17 +28,11 @@ class RatioPlotter:
         self._means: List[Union[float, np.nan]] = []
         self._output_dir = output_dir
 
-    def read_samples_from(
-            self,
-            filename: str,
-            win_size: Optional[int] = None) -> None:
+    def read_samples_from(self, filename: str) -> None:
         self._filename = filename
         self._stem = Path(filename).stem
 
-        if win_size is not None:
-            self._win_size = win_size
-        else:
-            self._get_win_size_from_filename(fallback=1500)
+        self._get_win_size_from_filename(fallback=500)
         self._clear_samples()
         self._update_samples()
         self._sample_size = len(self._ratios)
@@ -111,12 +106,12 @@ class RatioPlotter:
         self._ax.set_title(f"{self._stem}; {std:.4f}")
 
         self._plot_ratios()
-        self._plot_blinks()
         self._plot_thress()
         self._plot_means()
-        self._plot_annotate_blinks()
+        self._plot_blinks()
+        self._plot_annotate_blinks_if_exist()
         self._set_limit_and_ticks()
-        self._set_legend()
+        self._ax.legend()
 
         if show:
             plt.show()
@@ -150,8 +145,14 @@ class RatioPlotter:
                                              color="g", alpha=0.5,
                                              label="detect")
 
-    def _plot_annotate_blinks(self) -> None:
-        annotate_blinks = json.loads((Path.cwd() / "video/blink_no.json").read_text())
+    def _plot_annotate_blinks_if_exist(self) -> None:
+        annotate_blink_path = self._get_annotate_blink_path()
+        if not annotate_blink_path.exists():
+            return
+
+        annotate_blinks: List[int] = json.loads(
+            annotate_blink_path.read_text()
+        )
         self._real_dot = self._ax.scatter(annotate_blinks,
                                           [self._ratios[i] for i in annotate_blinks],
                                           color="r", alpha=0.5,
@@ -162,12 +163,20 @@ class RatioPlotter:
         self._ax.set(xlim=(1, self._sample_size),
                      ylim=ratio_range, yticks=np.arange(*ratio_range, 0.02))
 
-    def _set_legend(self) -> None:
-        self._ax.legend(handles=[self._ratios_line,
-                                 self._thress_line,
-                                 self._means_line,
-                                 self._detect_dot,
-                                 self._real_dot])
+    def _get_annotate_blink_path(self) -> Path:
+        # The annotate file is under the "video" folder.
+        return Path.cwd() / "video" / self._get_annotate_blink_filename()
+
+    def _get_annotate_blink_filename(self) -> str:
+        # The annotate file has a suffix of "_no".
+        return f"{self._get_stem_without_win_size()}_no.json"
+
+    def _get_stem_without_win_size(self) -> str:
+        # The original stem of filename encoded a "_w{win_size}" to indicate the
+        # window size used in this specific detection.
+        info = self._stem.split("_")
+        info_without_w = filterfalse(methodcaller("startswith", "w"), info)
+        return "_".join(info_without_w)
 
     def _get_win_size_from_filename(self, fallback: int) -> None:
         info = self._stem.split("_")
@@ -186,6 +195,6 @@ if __name__ == "__main__":
 
     file_path = Path.cwd() / sys.argv[1]
     plotter = RatioPlotter(output_dir=(Path.cwd() / "plots"))
-    plotter.read_samples_from(str(file_path), 500)
+    plotter.read_samples_from(str(file_path))
     show = (len(sys.argv) == 3)
     plotter.plot(show=show)
