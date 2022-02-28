@@ -10,11 +10,8 @@ from typing import Optional
 import imutils
 from imutils import face_utils
 
-from blink_detector import (
-    AntiNoiseBlinkDetector,
-    BlinkDetector,
-    DynamicThresholdMaker,
-)
+from detector import AntiNoiseBlinkDetector, BlinkDetector
+from threshold import DynamicThresholdMaker
 from util.color import RED
 from util.faceplots import (
     draw_landmarks_used_by_blink_detector,
