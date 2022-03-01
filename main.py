@@ -11,7 +11,7 @@ import imutils
 from imutils import face_utils
 
 from detector import AntiNoiseBlinkDetector, BlinkDetector
-from threshold import DynamicThresholdMaker
+from threshold import StatisticalThresholdMaker
 from util.color import RED
 from util.faceplots import (
     draw_landmarks_used_by_blink_detector,
@@ -82,7 +82,7 @@ def main(video: Optional[Path] = None) -> None:
     blink_detector = AntiNoiseBlinkDetector(EYE_AR_THRESH, EYE_AR_CONSEC_FRAMES)
 
     print("[INFO] initializng threshold maker...")
-    thres_maker = DynamicThresholdMaker(EYE_AR_THRESH, 500)
+    thres_maker = StatisticalThresholdMaker(EYE_AR_THRESH, 500)
 
     source: Union[int, str]
     if video is None:

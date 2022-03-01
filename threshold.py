@@ -1,22 +1,39 @@
+from abc import ABC, abstractmethod
 from collections import deque
 from decimal import Decimal
 from typing import Deque, Union
 
 from nptyping import Int, NDArray
 
-from detector import BlinkDetector 
+from detector import BlinkDetector
 
 
-class DynamicThresholdMaker:
+class DynamicThresholdMaker(ABC):
     """Take a certain number of landmarks that contains face to dynamically
     determine a threshold of eye aspect ratio.
 
-    It can be used with a BlinkDetector to provide better detections on different
-    users.
-    "Decimal" module is used to reduce round-off errors, provide better precision.
+    It can be used with a BlinkDetector to provide better detections on
+    different users.
     """
 
-    HIGH_MEAN_LINE = Decimal("0.28")
+    @property
+    @abstractmethod
+    def threshold(self) -> Decimal:
+        pass
+
+    @abstractmethod
+    def read_sample(self, landmarks: NDArray[(68, 2), Int[32]]) -> None:
+        """Reads the EAR value from the landmarks."""
+
+    @abstractmethod
+    def read_ratio(self, ratio: Union[Decimal, float]) -> None:
+        """Reads the EAR value directly."""
+
+
+class StatisticalThresholdMaker(DynamicThresholdMaker):
+    """Uses mean and standard deviation on numbers of samples to dynamically
+    determine the threshold.
+    """
 
     def __init__(
             self,
@@ -32,6 +49,8 @@ class DynamicThresholdMaker:
                 Higher number (included) of samples than this is considered to
                 be reliable.
         """
+        super().__init__()
+
         if temp_thres < 0.15 or temp_thres > 0.5:
             raise ValueError("resonable threshold should >= 0.15 and <= 0.5")
         if num_thres < 100:
@@ -48,6 +67,7 @@ class DynamicThresholdMaker:
         # ratios in order.
         self._samp_ratios: Deque[Decimal] = deque()
 
+    # Override
     @property
     def threshold(self) -> Decimal:
         """The dynamic threshold; temporary threshold if the number of sample
@@ -55,6 +75,7 @@ class DynamicThresholdMaker:
         """
         return self._dyn_thres
 
+    # Override
     def read_sample(self, landmarks: NDArray[(68, 2), Int[32]]) -> None:
         """Reads the EAR value from the landmarks.
 
@@ -67,6 +88,7 @@ class DynamicThresholdMaker:
 
         self.read_ratio(BlinkDetector.get_average_eye_aspect_ratio(landmarks))
 
+    # Override
     def read_ratio(self, ratio: Union[Decimal, float]) -> None:
         """Reads the EAR value directly.
 
@@ -105,10 +127,8 @@ class DynamicThresholdMaker:
             return
 
         self._calculate_mean_and_std()
-        if self._mean >= self.HIGH_MEAN_LINE:
-            self._use_big_offset()
-        else:
-            self._use_small_offset()
+        print(self._get_factor())
+        self._dyn_thres = self._mean - self._get_factor() * self._std
 
     def _is_not_yet_reliable(self) -> bool:
         return len(self._samp_ratios) < self._num_thres
@@ -118,8 +138,9 @@ class DynamicThresholdMaker:
         mean_of_sq = self._cur_sum_of_sq / self._num_thres
         self._std = (mean_of_sq - self._mean * self._mean).sqrt()
 
-    def _use_big_offset(self) -> None:
-        self._dyn_thres = self._mean - 2 * self._std
-
-    def _use_small_offset(self) -> None:
-        self._dyn_thres = self._mean - self._std
+    def _get_factor(self) -> Decimal:
+        # Line:
+        #   when mean = 0.22, factor = 0.8;
+        #        mean = 0.28, factor = 1.8
+        # => y = (50 / 3) * (x - 0.22) + 0.8
+        return Decimal("50") / Decimal("3") * (self._mean - Decimal("0.22")) + Decimal("0.8")
