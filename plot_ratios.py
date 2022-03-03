@@ -105,9 +105,10 @@ class RatioPlotter:
         self._ax.set_title(f"{self._stem}; {std:.4f}")
 
         self._plot_ratios()
-        self._plot_thress()
-        self._plot_means()
-        self._plot_blinks()
+        self._plot_rolling_stds()
+        # self._plot_thress()
+        # self._plot_means()
+        # self._plot_blinks()
         self._plot_annotate_blinks_if_exist()
         self._set_limit_and_ticks()
         self._ax.legend()
@@ -118,6 +119,24 @@ class RatioPlotter:
             self._output_dir.mkdir(exist_ok=True)
             plt.savefig(self._output_dir / f"{self._stem}.png", dpi=150)
             plt.close()  # so can be garbage collected
+
+    def _plot_rolling_stds(self) -> None:
+        def _with_window_size(n: int):
+            ratios = np.array(self._ratios)
+            r_stds = [np.nan] * (n - 1)
+            for i in range((n - 1), len(ratios)):
+                r_stds.append(0.32 + np.std(ratios[i-(n-1):i+1]))
+            return r_stds
+        r_stds = _with_window_size(10)
+        plt.axhline(0.32, color="black", alpha=0.5)
+        for i in range(1, len(r_stds)):
+            if (r_stds[i] - r_stds[i-1])*100 > 0.8:
+                plt.axvline(i, color=mcolors.CSS4_COLORS["indigo"], alpha=0.3)
+        self._r_stds_line, = self._ax.plot(np.arange(len(r_stds)),
+                                           r_stds,
+                                           color="r",
+                                           linewidth=1,
+                                           label="r_std")
 
     def _plot_ratios(self) -> None:
         self._ratios_line, = self._ax.plot(np.arange(self._sample_size),
@@ -197,3 +216,8 @@ if __name__ == "__main__":
     plotter.read_samples_from(str(file_path))
     show = (len(sys.argv) == 3)
     plotter.plot(show=show)
+    # plotter = RatioPlotter(output_dir=(Path.cwd() / "plots"))
+    # for path in (Path.cwd() / "video").iterdir():
+    #     if path.suffix == ".txt":
+    #         plotter.read_samples_from(str(path))
+    #         plotter.plot()
