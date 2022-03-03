@@ -127,7 +127,6 @@ class StatisticalThresholdMaker(DynamicThresholdMaker):
             return
 
         self._calculate_mean_and_std()
-        print(self._get_factor())
         self._dyn_thres = self._mean - self._get_factor() * self._std
 
     def _is_not_yet_reliable(self) -> bool:

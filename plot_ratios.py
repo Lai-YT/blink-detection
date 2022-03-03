@@ -121,47 +121,61 @@ class RatioPlotter:
             plt.close()  # so can be garbage collected
 
     def _plot_rolling_stds(self) -> None:
-        def _with_window_size(n: int):
-            ratios = np.array(self._ratios)
+        OFFSET_FOR_SEP = 0.32
+        def _roll_with_window_size(n: int) -> List[float]:
             r_stds = [np.nan] * (n - 1)
-            for i in range((n - 1), len(ratios)):
-                r_stds.append(0.32 + np.std(ratios[i-(n-1):i+1]))
-            return r_stds
-        r_stds = _with_window_size(10)
-        plt.axhline(0.32, color="black", alpha=0.5)
+            r_means = [np.nan] * (n - 1)
+            for i in range((n - 1), len(self._ratios)):
+                # to find change point
+                r_stds.append(np.std(self._ratios[i-(n-1):i+1]) + OFFSET_FOR_SEP)
+                # to detet increasing/decreasing
+                r_means.append(np.mean(self._ratios[i-(n-1):i+1]))
+            return r_stds, r_means
+        r_stds, r_means = _roll_with_window_size(10)
+        self._ax.axhline(OFFSET_FOR_SEP, color="black", alpha=0.5)
         for i in range(1, len(r_stds)):
-            if (r_stds[i] - r_stds[i-1])*100 > 0.8:
-                plt.axvline(i, color=mcolors.CSS4_COLORS["indigo"], alpha=0.3)
-        self._r_stds_line, = self._ax.plot(np.arange(len(r_stds)),
-                                           r_stds,
-                                           color="r",
-                                           linewidth=1,
-                                           label="r_std")
+            if (r_stds[i] - r_stds[i-1]) * 100 > 0.8:  # is change point
+                if r_means[i] - r_means[i-1] < 0:  # is decreasing
+                    color = "indigo"
+                else:
+                    color = "orange"
+                self._ax.axvline(i, color=mcolors.CSS4_COLORS[color], alpha=0.5)
+
+        self._ax.plot(
+            np.arange(len(r_stds)), r_stds,
+            color="r",
+            linewidth=1,
+            label="r_std"
+        )
 
     def _plot_ratios(self) -> None:
-        self._ratios_line, = self._ax.plot(np.arange(self._sample_size),
-                                           self._ratios,
-                                           linewidth=1,
-                                           label="ratio")
+        self._ax.plot(
+            np.arange(self._sample_size), self._ratios,
+            linewidth=1,
+            label="ratio"
+        )
 
     def _plot_thress(self) -> None:
-        self._thress_line, = self._ax.plot(np.arange(self._sample_size),
-                                           self._thress,
-                                           color=mcolors.CSS4_COLORS["aqua"],
-                                           ls="--", linewidth=1.2,
-                                           label="thres")
+        self._ax.plot(
+            np.arange(self._sample_size), self._thress,
+            color=mcolors.CSS4_COLORS["aqua"],
+            ls="--", linewidth=1.2,
+            label="thres"
+        )
 
     def _plot_means(self) -> None:
-        self._means_line, = self._ax.plot(np.arange(self._sample_size),
-                                          self._means,
-                                          color=mcolors.CSS4_COLORS["lime"],
-                                          ls="--", linewidth=1.2,
-                                          label="mean")
+        self._ax.plot(np.arange(self._sample_size), self._means,
+            color=mcolors.CSS4_COLORS["lime"],
+            ls="--", linewidth=1.2,
+            label="mean"
+        )
+
     def _plot_blinks(self) -> None:
-        self._detect_dot = self._ax.scatter(np.arange(self._sample_size),
-                                             self._blinks,
-                                             color="g", alpha=0.5,
-                                             label="detect")
+        self._ax.scatter(
+            np.arange(self._sample_size), self._blinks,
+            color="g", alpha=0.5,
+            label="detect"
+        )
 
     def _plot_annotate_blinks_if_exist(self) -> None:
         annotate_blink_path = self._get_annotate_blink_path()
@@ -171,10 +185,11 @@ class RatioPlotter:
         annotate_blinks: List[int] = json.loads(
             annotate_blink_path.read_text()
         )
-        self._real_dot = self._ax.scatter(annotate_blinks,
-                                          [self._ratios[i] for i in annotate_blinks],
-                                          color="r", alpha=0.5,
-                                          label="real")
+        self._ax.scatter(
+            annotate_blinks, [self._ratios[i] for i in annotate_blinks],
+            color="r", alpha=0.5,
+            label="real"
+        )
 
     def _set_limit_and_ticks(self) -> None:
         ratio_range = (0.1, 0.4)
