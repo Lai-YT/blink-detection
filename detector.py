@@ -1,7 +1,7 @@
 import math
 import statistics
 from collections import deque
-from typing import Tuple, Union
+from typing import Deque, Tuple, Union
 
 import numpy as np
 from imutils import face_utils
@@ -33,10 +33,10 @@ class BlinkDetector:
 
     def __init__(self) -> None:
         self._is_blinking = False
-        self._window = deque(maxlen=self.WINDOW_SIZE)
-        self._pre_mean = None
-        self._pre_std  = None
-        self._cool_down = -1
+        self._window: Deque[float] = deque(maxlen=self.WINDOW_SIZE)
+        self._pre_mean: float = 0
+        self._pre_std:  float = 0
+        self._cool_down: int = -1
 
     @classmethod
     def get_average_eye_aspect_ratio(
@@ -103,8 +103,9 @@ class BlinkDetector:
         """Returns the result of the latest detection."""
         return self._is_blinking
 
-    def _is_initial_detection(self) -> None:
-        return self._pre_mean is None or self._pre_std is None
+    def _is_initial_detection(self) -> bool:
+        # it's impossible for the mean to be 0
+        return self._pre_mean == 0
 
     @staticmethod
     def _get_eye_aspect_ratio(eye: NDArray[(6, 2), Int[32]]) -> float:

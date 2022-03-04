@@ -3,7 +3,7 @@ import math
 import sys
 from itertools import filterfalse
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, TextIO, Union
+from typing import List, TextIO, Union
 
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
