@@ -10,8 +10,7 @@ from typing import Optional, Union
 import imutils
 from imutils import face_utils
 
-from detector import AntiNoiseBlinkDetector, BlinkDetector
-from threshold import DynamicThresholdMaker
+from detector import BlinkDetector
 from util.color import RED
 from util.faceplots import (
     draw_landmarks_used_by_blink_detector,
@@ -65,13 +64,6 @@ def main(video: Optional[Path] = None) -> None:
                           int(clamp_width(fx-0.2*fw)):int(clamp_width(fx+1.2*fw))]
         return frame
 
-    # define two constants, one for the eye aspect ratio to indicate
-    # blink and then a second constant for the number of consecutive
-    # frames the eye must be below the threshold
-    EYE_AR_THRESH = 0.24
-    EYE_AR_CONSEC_FRAMES = 3  # the face area mode consumes more computaional time,
-                              # 2 would be more suitable
-
     # initialize dlib's face detector (HOG-based) and then create
     # the facial landmark predictor
     print("[INFO] loading facial landmark predictor...")
@@ -79,10 +71,7 @@ def main(video: Optional[Path] = None) -> None:
     predictor = dlib.shape_predictor("./shape_predictor_68_face_landmarks.dat")
 
     print("[INFO] preparing blink detector...")
-    blink_detector = AntiNoiseBlinkDetector(EYE_AR_THRESH, EYE_AR_CONSEC_FRAMES)
-
-    print("[INFO] initializng threshold maker...")
-    thres_maker = DynamicThresholdMaker(EYE_AR_THRESH, 500)
+    blink_detector = BlinkDetector()
 
     source: Union[int, str]
     if video is None:
@@ -95,12 +84,8 @@ def main(video: Optional[Path] = None) -> None:
     cam = cv2.VideoCapture(source)
     time.sleep(1.0)
 
-    # initialize the total number of blinks
-    blink_count = 0
-    consec_count = 0
 
-    # store the ratios that are not yet known whether is within a blink or not
-    ratio_buffer = []
+    blink_count = 0
 
     # EAR logging file
     if video is None:
@@ -137,31 +122,13 @@ def main(video: Optional[Path] = None) -> None:
                 landmarks = face_utils.shape_to_np(shape)
                 ratio = BlinkDetector.get_average_eye_aspect_ratio(landmarks)
 
-                if ratio < blink_detector.ratio_threshold:
-                    ratio_buffer.append(ratio)
-                    consec_count += 1
-                # settle when the consec ends
-                else:
-                    if consec_count < EYE_AR_CONSEC_FRAMES:
-                        # not a real blink, give the ratios to maker
-                        for r in ratio_buffer:
-                            thres_maker.read_ratio(r)
-                    ratio_buffer.clear()
-                    consec_count = 0
-                    thres_maker.read_ratio(ratio)
-                    blink_detector.ratio_threshold = thres_maker.threshold
-
                 blink_detector.detect_blink(landmarks)
                 if blink_detector.is_blinking():
                     blink_count += 1
                     # the one right after an end of blink is marked
                     f.write("* ")
 
-                f.write(f"{ratio:.3f} {blink_detector.ratio_threshold:.3f}")
-                # FIXME: I'm hacking...
-                if hasattr(thres_maker, "_mean"):
-                    f.write(f" {thres_maker._mean:.3f}")
-                f.write("\n")
+                f.write(f"{ratio:.3f}\n")
 
                 frame = draw_landmarks_used_by_blink_detector(frame, landmarks)
                 # draw the total number of blinks on the frame along with

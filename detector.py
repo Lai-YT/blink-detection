@@ -1,7 +1,7 @@
 import math
 import statistics
-from decimal import Decimal
-from typing import Tuple, Union
+from collections import deque
+from typing import Deque, Tuple, Union
 
 import numpy as np
 from imutils import face_utils
@@ -11,6 +11,9 @@ from nptyping import Int, NDArray
 class BlinkDetector:
     """Detects whether the eyes are blinking or not by calculating
     the eye aspect ratio (EAR).
+
+    A window-based approach is used to detect the change points of EARs, which
+    indicates a possible occurrence of blink.
 
     Attributes:
         LEFT_EYE_START_END_IDXS:
@@ -24,29 +27,21 @@ class BlinkDetector:
     LEFT_EYE_START_END_IDXS:  Tuple[int, int] = face_utils.FACIAL_LANDMARKS_IDXS["left_eye"]
     RIGHT_EYE_START_END_IDXS: Tuple[int, int] = face_utils.FACIAL_LANDMARKS_IDXS["right_eye"]
 
-    def __init__(
-            self,
-            ratio_threshold: Union[Decimal, float] = Decimal("0.24")) -> None:
-        """
-        Arguments:
-            ratio_threshold:
-                Having ratio lower than the threshold is considered to be a blink.
-        """
-        self._ratio_threshold = Decimal(ratio_threshold)
+    # critical parameters to fine-tune
+    WINDOW_SIZE = 10
+    DRAMATIC_STD_CHANGE = 0.008
+
+    def __init__(self) -> None:
         self._is_blinking = False
-
-    @property
-    def ratio_threshold(self) -> Decimal:
-        return self._ratio_threshold
-
-    @ratio_threshold.setter
-    def ratio_threshold(self, threshold: Decimal) -> None:
-        self._ratio_threshold = threshold
+        self._window: Deque[float] = deque(maxlen=self.WINDOW_SIZE)
+        self._pre_mean: float = 0
+        self._pre_std:  float = 0
+        self._cool_down: int = -1
 
     @classmethod
     def get_average_eye_aspect_ratio(
             cls,
-            landmarks: NDArray[(68, 2), Int[32]]) -> Decimal:
+            landmarks: NDArray[(68, 2), Int[32]]) -> float:
         """Returns the averaged EAR of the two eyes."""
         # use the left and right eye coordinates to compute
         # the eye aspect ratio for both eyes
@@ -65,14 +60,55 @@ class BlinkDetector:
             raise ValueError("landmarks should represent a face")
 
         ratio = BlinkDetector.get_average_eye_aspect_ratio(landmarks)
-        self._is_blinking = (ratio < self._ratio_threshold)
+
+        if self._is_initial_detection():
+            self._pre_mean = ratio
+            self._pre_std  = 0
+            # dummy samples
+            self._window.extend([ratio] * (self.WINDOW_SIZE - 1))
+
+        self._window.append(ratio)
+        cur_mean = statistics.mean(self._window)
+        cur_std = statistics.stdev(self._window)
+
+        # important details when implementing this approach
+        self._is_blinking = (
+            self._not_too_near()
+                and self._dramatically_changed(cur_std)
+                and self._ear_decreased(cur_mean)
+        )
+        if self._is_blinking:
+            self._start_cooling_down()
+        else:
+            self._cool_down -= 1
+
+        self._pre_mean = cur_mean
+        self._pre_std  = cur_std
+
+    def _not_too_near(self) -> bool:
+        # a near blink is probably caused by noise
+        return self._cool_down < 0
+
+    def _dramatically_changed(self, cur_std: float) -> bool:
+        return cur_std - self._pre_std > self.DRAMATIC_STD_CHANGE
+
+    def _ear_decreased(self, cur_mean: float) -> bool:
+        return cur_mean - self._pre_mean < 0
+
+    def _start_cooling_down(self) -> None:
+        # no frequent blinkings can happen within 3 slides
+        self._cool_down = 3
 
     def is_blinking(self) -> bool:
         """Returns the result of the latest detection."""
         return self._is_blinking
 
+    def _is_initial_detection(self) -> bool:
+        # it's impossible for the mean to be 0
+        return self._pre_mean == 0
+
     @staticmethod
-    def _get_eye_aspect_ratio(eye: NDArray[(6, 2), Int[32]]) -> Decimal:
+    def _get_eye_aspect_ratio(eye: NDArray[(6, 2), Int[32]]) -> float:
         """Returns the EAR of eye.
 
         Eye aspect ratio is the ratio between height and width of the eye.
@@ -82,13 +118,13 @@ class BlinkDetector:
         # compute the euclidean distances between the two sets of
         # vertical eye landmarks
         vert = []
-        vert.append(Decimal(math.dist(eye[1], eye[5])))
-        vert.append(Decimal(math.dist(eye[2], eye[4])))
+        vert.append(math.dist(eye[1], eye[5]))
+        vert.append(math.dist(eye[2], eye[4]))
 
         # compute the euclidean distance between the horizontal
         # eye landmarks
         hor = []
-        hor.append(Decimal(math.dist(eye[0], eye[3])))
+        hor.append(math.dist(eye[0], eye[3]))
 
         return statistics.mean(vert) / statistics.mean(hor)
 
@@ -105,45 +141,3 @@ class BlinkDetector:
             landmarks: NDArray[(68, 2), Int[32]]) -> NDArray[(6, 2), Int[32]]:
         return landmarks[cls.RIGHT_EYE_START_END_IDXS[0]
                          :cls.RIGHT_EYE_START_END_IDXS[1]]
-
-
-class AntiNoiseBlinkDetector(BlinkDetector):
-    """AntiNoiseBlinkDetector agrees a "blink" only if it continues for a
-    sufficient number of frames.
-
-    To reduce the false-positive "blink" caused by noise or face movement.
-    """
-
-    def __init__(
-            self,
-            ratio_threshold: Union[Decimal, float] = Decimal("0.24"),
-            consec_frame: int = 3) -> None:
-        """
-        Arguments:
-            ratio_threshold: The eye aspect ratio to indicate blink.
-            consec_frame:
-                The number of consecutive frames the eye must be below the
-                threshold to indicate an anti-noise blink.
-        """
-        super().__init__(ratio_threshold)
-        self._consec_frame = consec_frame
-        self._consec_count: int = 0
-
-    # Override
-    def detect_blink(self, landmarks: NDArray[(68, 2), Int[32]]) -> None:
-        """
-        The detection is about a "delayed" state. Since it's anti-noised by
-        the number of consecutive frames, we can only determine whether this is
-        a blink or not after the consecutiveness ends.
-        """
-        super().detect_blink(landmarks)
-        # Uses the base detector with consec_frame to determine whether
-        # there's an anti-noise blink.
-        if super().is_blinking():
-           self._consec_count += 1
-           self._is_blinking = False
-        else:
-            # If the eyes were closed for a sufficient number of frames,
-            # it's considered to be a real blink.
-            self._is_blinking = (self._consec_count >= self._consec_frame)
-            self._consec_count = 0
