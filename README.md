@@ -6,9 +6,9 @@ This study supports the *blink* module in [Lai-YT/webcam-applications](https://g
 
 We want to detect whether the user blinks or not from the video.
 
-### Implemention
+## Implemention
 
-## Eye Aspect Ratio (EAR)
+### Eye Aspect Ratio (EAR)
 
 T. Soukupová and J. Čech found out that the eye aspect ratio, which is defined \
 as the ratio of the height and width of the eye, changes between opened and \
@@ -20,7 +20,7 @@ Instead of using fancy *SVM*, we generalize the blink detection problem to a \
 **change point problem**. When a blink is made, the EAR changes dramatically and \
 rapidly.
 
-## Change Point Detection
+### Change Point Detection
 
 The following GIF illustrates how a window-based change point detection works \
 with the standard deviation (*STD*) as its *cost function* [2].
