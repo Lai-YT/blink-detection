@@ -28,7 +28,7 @@ class BlinkDetector:
     RIGHT_EYE_START_END_IDXS: Tuple[int, int] = face_utils.FACIAL_LANDMARKS_IDXS["right_eye"]
 
     # critical parameters to fine-tune
-    WINDOW_SIZE = 10
+    WINDOW_SIZE = 9
     DRAMATIC_STD_CHANGE = 0.008
 
     def __init__(self) -> None:

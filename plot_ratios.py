@@ -82,6 +82,7 @@ class RatioPlotter:
 
         self._plot_ratios()
         self._plot_blinks()
+        self._plot_rolling_stds()
         self._plot_annotate_blinks_if_exist()
         self._set_limit_and_ticks()
         self._ax.legend()
@@ -104,15 +105,17 @@ class RatioPlotter:
                 # to detet increasing/decreasing
                 r_means.append(np.mean(self._ratios[i-(n-1):i+1]))
             return r_stds, r_means
-        r_stds, r_means = _roll_with_window_size(10)
+        # Adjust the critical parameters in the following section to compare the
+        # difference in sensitivity.
+        r_stds, r_means = _roll_with_window_size(9)
         self._ax.axhline(OFFSET_FOR_SEP, color="black", alpha=0.5)
-        for i in range(1, len(r_stds)):
-            if (r_stds[i] - r_stds[i-1]) * 100 > 0.8:  # is change point
-                if r_means[i] - r_means[i-1] < 0:  # is decreasing
-                    color = "indigo"
-                else:
-                    color = "orange"
-                self._ax.axvline(i, color=mcolors.CSS4_COLORS[color], alpha=0.5)
+        # for i in range(1, len(r_stds)):
+        #     if (r_stds[i] - r_stds[i-1]) > 0.008:  # is change point
+        #         if r_means[i] - r_means[i-1] < 0:  # is decreasing
+        #             color = "yellow"
+        #         else:
+        #             color = "orange"
+        #         self._ax.axvline(i, color=mcolors.CSS4_COLORS[color], alpha=0.5)
 
         self._ax.plot(
             np.arange(len(r_stds)), r_stds,
@@ -157,16 +160,11 @@ class RatioPlotter:
 
     def _get_annotate_blink_path(self) -> Path:
         # The annotate file is under the "video" folder.
-        return Path.cwd() / "video" / self._get_annotate_blink_filename()
+        return Path(__file__).parent / "video" / self._get_annotate_blink_filename()
 
     def _get_annotate_blink_filename(self) -> str:
         # The annotate file has a suffix of "_no".
-        return f"{self._get_stem_without_info_encoding()}_no.json"
-
-    def _get_stem_without_info_encoding(self) -> str:
-        info = self._stem.split("_")
-        # first 2 is the pure name
-        return "_".join(info[:2])
+        return f"{self._stem}_no.json"
 
 
 if __name__ == "__main__":
@@ -175,12 +173,7 @@ if __name__ == "__main__":
         raise RuntimeError(f"\n\t usage: python {__file__} ./$(file_path) [show]")
 
     file_path = Path.cwd() / sys.argv[1]
-    plotter = RatioPlotter(output_dir=(Path.cwd() / "plots"))
+    plotter = RatioPlotter(output_dir=(Path(__file__).parent / "plots"))
     plotter.read_samples_from(str(file_path))
     show = (len(sys.argv) == 3)
     plotter.plot(show=show)
-    # plotter = RatioPlotter(output_dir=(Path.cwd() / "plots"))
-    # for path in (Path.cwd() / "video").iterdir():
-    #     if path.suffix == ".txt":
-    #         plotter.read_samples_from(str(path))
-    #         plotter.plot()
