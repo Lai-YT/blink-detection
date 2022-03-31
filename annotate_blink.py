@@ -89,7 +89,7 @@ class BlinkVideoAnnotator:
             return datetime.now().strftime("%Y%m%d-%H%M%S")
 
         stem = add_trailing_timestamp_to(f"ann-{self._video_file.stem}")
-        self._json_file = (Path.cwd() / stem).with_suffix(".json")
+        self._json_file = (Path(__file__).parent / stem).with_suffix(".json")
 
 
 def main(video_to_annotate: str) -> None:

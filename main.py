@@ -2,6 +2,7 @@ import cv2
 import dlib
 import sys
 import time
+from datetime import datetime
 from functools import partial
 from operator import methodcaller
 from pathlib import Path
@@ -89,7 +90,7 @@ def main(video: Optional[Path] = None) -> None:
 
     # EAR logging file
     if video is None:
-        output_file = Path(__file__).parent / "ratio.txt"
+        output_file = Path(__file__).parent / f"ratio-{datetime.now().strftime('%Y%m%d-%H%M%S')}.txt"
     else:
         output_file = video.with_suffix(".txt")
 
