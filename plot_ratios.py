@@ -158,7 +158,7 @@ class RatioPlotter:
 
     def _get_annotate_blink_path(self) -> Path:
         # The annotate file is under the "video" folder.
-        return Path.cwd() / "video" / self._get_annotate_blink_filename()
+        return Path(__file__).parent / "video" / self._get_annotate_blink_filename()
 
     def _get_annotate_blink_filename(self) -> str:
         # The annotate file has a suffix of "_no".
@@ -176,12 +176,7 @@ if __name__ == "__main__":
         raise RuntimeError(f"\n\t usage: python {__file__} ./$(file_path) [show]")
 
     file_path = Path.cwd() / sys.argv[1]
-    plotter = RatioPlotter(output_dir=(Path.cwd() / "plots"))
+    plotter = RatioPlotter(output_dir=(Path(__file__).parent / "plots"))
     plotter.read_samples_from(str(file_path))
     show = (len(sys.argv) == 3)
     plotter.plot(show=show)
-    # plotter = RatioPlotter(output_dir=(Path.cwd() / "plots"))
-    # for path in (Path.cwd() / "video").iterdir():
-    #     if path.suffix == ".txt":
-    #         plotter.read_samples_from(str(path))
-    #         plotter.plot()

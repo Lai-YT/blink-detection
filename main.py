@@ -89,7 +89,7 @@ def main(video: Optional[Path] = None) -> None:
 
     # EAR logging file
     if video is None:
-        output_file = Path.cwd() / "ratio.txt"
+        output_file = Path(__file__).parent / "ratio.txt"
     else:
         output_file = video.with_suffix(".txt")
 
