@@ -53,9 +53,6 @@ class RatioPlotter:
             ratio = float(self._line_to_parse)
             self._ratios.append(ratio)
 
-    def _append_non_blink_filler(self) -> None:
-        self._blink_nos.append(self.NON_BLINK_FILLER)
-
     def _append_miss_face_filler(self) -> None:
         self._ratios.append(self.MISS_FACE_FILLER)
         self._blink_nos.append(self.MISS_FACE_FILLER)
