@@ -48,7 +48,7 @@ The detection works under the `main.py` file, 2 modes are provided:
 1. video mode
 2. live stream mode, which opens the webcam
 
-```python
+```
 python main.py [./$(video_path) | live]
 ```
 
@@ -69,7 +69,7 @@ to the main file, that is the *EAR*s of all the frames in the live stream.
 
 ### Plotting EARs and blinks
 
-```python
+```
 python plot_ratios.py ./$(file_path) [show]
 ```
 
@@ -83,7 +83,7 @@ name as the *EAR* file.
 If you want to compare the real blinks with the detected blinks, you can use the
 annotation file.
 
-```python
+```
 python annotate_blink.py $(video_to_annotate)
 ```
 
