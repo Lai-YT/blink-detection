@@ -1,14 +1,12 @@
 import json
-import math
 import sys
 from itertools import filterfalse
 from pathlib import Path
-from typing import List, TextIO, Union
+from typing import List, TextIO, Tuple, Union
 
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 import numpy as np
-from nptyping import Float, NDArray
 
 
 class RatioPlotter:
@@ -20,9 +18,9 @@ class RatioPlotter:
     MISS_FACE_FILLER = np.nan
 
     def __init__(self, output_dir: Path) -> None:
-        self._ratios: List[Union[float]] = []
+        self._ratios: List[Union[float, str]] = []
         # frame numbers of blinks
-        self._blink_nos: List[Union[float]] = []
+        self._blink_nos: List[Union[float, str]] = []
         self._output_dir = output_dir
 
     def read_samples_from(self, filename: str) -> None:
@@ -93,7 +91,7 @@ class RatioPlotter:
 
     def _plot_rolling_stds(self) -> None:
         OFFSET_FOR_SEP = 0.32
-        def _roll_with_window_size(n: int) -> List[float]:
+        def _roll_with_window_size(n: int) -> Tuple[List[float], List[float]]:
             r_stds = [np.nan] * (n - 1)
             r_means = [np.nan] * (n - 1)
             for i in range((n - 1), len(self._ratios)):

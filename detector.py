@@ -1,9 +1,8 @@
 import math
 import statistics
 from collections import deque
-from typing import Deque, Tuple, Union
+from typing import Deque, Tuple
 
-import numpy as np
 from imutils import face_utils
 from nptyping import Int, NDArray
 
