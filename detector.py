@@ -29,6 +29,7 @@ class BlinkDetector:
     # critical parameters to fine-tune
     WINDOW_SIZE = 9
     DRAMATIC_STD_CHANGE = 0.008
+    COOL_DOWM = 3
 
     def __init__(self) -> None:
         self._is_blinking = False
@@ -96,7 +97,7 @@ class BlinkDetector:
 
     def _start_cooling_down(self) -> None:
         # no frequent blinkings can happen within 3 slides
-        self._cool_down = 3
+        self._cool_down = self.COOL_DOWM
 
     def is_blinking(self) -> bool:
         """Returns the result of the latest detection."""

@@ -8,6 +8,8 @@ import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 import numpy as np
 
+from detector import BlinkDetector
+
 
 class RatioPlotter:
     # markers are from external file,
@@ -37,7 +39,7 @@ class RatioPlotter:
 
     def _parse_samples_from(self, fp: TextIO) -> None:
         for i, line in enumerate(fp):
-            self._line_to_parse = line
+            self._line_to_parse: str = line
 
             if self._line_has_miss_face_marker():
                 self._append_miss_face_filler()
@@ -71,7 +73,7 @@ class RatioPlotter:
         self._blink_nos.clear()
 
     def plot(self, show: bool = True) -> None:
-        fig, self._ax = plt.subplots()
+        _, self._ax = plt.subplots()
         std = np.std(list(filterfalse(np.isnan, self._ratios)))
         self._ax.set_title(f"{self._stem}; {std:.4f}")
 
@@ -90,7 +92,8 @@ class RatioPlotter:
             plt.close()  # so can be garbage collected
 
     def _plot_rolling_stds(self) -> None:
-        OFFSET_FOR_SEP = 0.32
+        OFFSET_FOR_SEP = 0.32  # to show EAR and STD in the same plot but not overlapped
+
         def _roll_with_window_size(n: int) -> Tuple[List[float], List[float]]:
             r_stds = [np.nan] * (n - 1)
             r_means = [np.nan] * (n - 1)
@@ -100,12 +103,16 @@ class RatioPlotter:
                 # to detet increasing/decreasing
                 r_means.append(np.mean(self._ratios[i-(n-1):i+1]))
             return r_stds, r_means
-        # Adjust the critical parameters in the following section to compare the
+
+        # Default to plot with the parameters used by BlinkDetector.
+        # You may adjust these critical parameters in the following section to compare the
         # difference in sensitivity.
-        r_stds, r_means = _roll_with_window_size(9)
+        window_size = BlinkDetector.WINDOW_SIZE
+        dramatic_std_change = BlinkDetector.DRAMATIC_STD_CHANGE
+        r_stds, r_means = _roll_with_window_size(window_size)
         self._ax.axhline(OFFSET_FOR_SEP, color="black", alpha=0.5)
         # for i in range(1, len(r_stds)):
-        #     if (r_stds[i] - r_stds[i-1]) > 0.008:  # is change point
+        #     if (r_stds[i] - r_stds[i-1]) > dramatic_std_change:  # is change point
         #         if r_means[i] - r_means[i-1] < 0:  # is decreasing
         #             color = "yellow"
         #         else:
