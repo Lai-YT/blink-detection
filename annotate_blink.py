@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import cv2
 import json
-import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Iterator, List
@@ -98,7 +97,10 @@ def main(video_to_annotate: str) -> None:
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        raise RuntimeError(f"\n\t usage: python {__file__} $(video_to_annotate)")
+    import argparse
 
-    main(sys.argv[1])
+    parser = argparse.ArgumentParser()
+    parser.add_argument("video", help="the video to perform annotation on")
+    args = parser.parse_args()
+
+    main(args.video)

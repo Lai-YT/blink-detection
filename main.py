@@ -1,6 +1,5 @@
 import cv2
 import dlib
-import sys
 import time
 from datetime import datetime
 from functools import partial
@@ -13,10 +12,7 @@ from imutils import face_utils
 
 from detector import BlinkDetector
 from util.color import RED
-from util.faceplots import (
-    draw_landmarks_used_by_blink_detector,
-    mark_face,
-)
+from util.faceplots import draw_landmarks_used_by_blink_detector
 from util.image_type import ColorImage
 
 
@@ -154,9 +150,15 @@ def main(video: Optional[Path] = None) -> None:
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        raise RuntimeError(f"\n\t usage: python {__file__} [./$(file_path) | live]")
-    if sys.argv[1] == "live":
+    import argparse
+
+    parser = argparse.ArgumentParser(allow_abbrev=False)
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("--video", help="the video file to detect eye aspect ratio on")
+    group.add_argument("--live", action="store_true", help="detect the eye aspect ratio from live stream")
+    args = parser.parse_args()
+
+    if args.live:
         main()
     else:
-        main(Path.cwd() / sys.argv[1])
+        main(Path(args.video))
