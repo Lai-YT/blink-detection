@@ -109,7 +109,14 @@ class RatioPlotter:
         window_size = BlinkDetector.WINDOW_SIZE
         dramatic_std_change = BlinkDetector.DRAMATIC_STD_CHANGE
         r_stds, r_means = _roll_with_window_size(window_size)
-        self._ax.axhline(OFFSET_FOR_SEP, color="black", alpha=0.5)
+
+        self._ax.plot(
+            np.arange(len(r_stds)), r_stds,
+            color="r",
+            linewidth=1,
+            label="std"
+        )
+        self._ax.axhline(OFFSET_FOR_SEP, color="black", alpha=0.5, label="detected")
         # for i in range(1, len(r_stds)):
         #     if (r_stds[i] - r_stds[i-1]) > dramatic_std_change:  # is change point
         #         if r_means[i] - r_means[i-1] < 0:  # is decreasing
@@ -117,13 +124,6 @@ class RatioPlotter:
         #         else:
         #             color = "orange"
         #         self._ax.axvline(i, color=mcolors.CSS4_COLORS[color], alpha=0.5)
-
-        self._ax.plot(
-            np.arange(len(r_stds)), r_stds,
-            color="r",
-            linewidth=1,
-            label="r_std"
-        )
 
     def _plot_ratios(self) -> None:
         self._ax.plot(
